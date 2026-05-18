@@ -14,14 +14,6 @@ const TSX_FIXTURE: &str = "tests/fixtures/source_shapes.tsx";
 const UNSUPPORTED_FIXTURE: &str = "tests/fixtures/not_source.txt";
 
 #[test]
-fn direct_file_invocation_aliases_to_map() {
-    let direct = run_lupa(&[RUST_FIXTURE]);
-    let explicit = run_lupa(&["map", RUST_FIXTURE]);
-
-    assert_eq!(direct, explicit);
-}
-
-#[test]
 fn map_prints_exact_keys_that_show_accepts() {
     let stdout = run_lupa(&["map", RUST_FIXTURE]);
 

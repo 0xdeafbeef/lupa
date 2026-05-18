@@ -11,7 +11,6 @@ than the implementation style.
 
 
 ```text
-lupa <path>              # alias for map
 lupa map <file-or-dir>
 lupa show <file> <key>...
 lupa digest <dir>

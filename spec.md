@@ -15,7 +15,6 @@ The intended user is an agent, not a human typing commands manually.
 Observed Codex history under `~/.codex/sessions/**/*.jsonl` showed thousands of `ast-outline` invocations by agents:
 
 - `show`: most common path.
-- legacy direct file invocation, like `ast-outline path/file.rs`: heavily used.
 - `map`: heavily used.
 - `digest`: used for directory scouting.
 - `search`, `implements`, and `find-related`: rare.
@@ -46,7 +45,6 @@ Therefore v1 optimizes for text output that is easy for agents to read and reuse
 ## 4. Command Summary
 
 ```text
-lupa <path>                       # alias for `lupa map <path>`
 lupa map <file-or-dir>...          # structural file map
 lupa show <file> <key>...          # source slices by symbol key
 lupa digest <dir>...               # compact directory/module overview
