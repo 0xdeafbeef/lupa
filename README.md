@@ -6,8 +6,9 @@ It is a personal reimplementation of the parts of `ast-outline` that were
 actually useful in my own agent workflow: compact maps, source slices by stable
 keys, directory digests, and key/range listings.
 
-It intentionally does not preserve unused surfaces such as indexed search,
-JSON-first output, graph/dependency commands, MCP integration, or edit commands.
+Notice: this project is vibcoded. Expect sharp edges; trust the tests more
+than the implementation style.
+
 
 ```text
 lupa <path>              # alias for map
