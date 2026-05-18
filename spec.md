@@ -429,7 +429,7 @@ src/adapters/markdown.rs
 
 ## 19. Rust Style Gate
 
-The initial Rust scaffold must copy Tycho's strict lint posture and rustfmt settings.
+The initial Rust scaffold should use strict linting and rustfmt settings.
 
 `rustfmt.toml`:
 
@@ -537,7 +537,7 @@ just check
 ```
 
 `just fmt-check` and `just fmt` intentionally use `cargo +nightly fmt`
-because Tycho's rustfmt settings rely on unstable rustfmt options.
+because the rustfmt settings rely on unstable rustfmt options.
 
 If a lint is too noisy during bootstrap, prefer fixing the design or narrowing the code. Do not add broad `allow` attributes without a specific rationale in code.
 

@@ -2,11 +2,11 @@
 default:
     @just --list
 
-# Format the workspace with the Tycho rustfmt settings.
+# Format the workspace with the project rustfmt settings.
 fmt:
     cargo +nightly fmt
 
-# Check formatting with the Tycho rustfmt settings.
+# Check formatting with the project rustfmt settings.
 fmt-check:
     cargo +nightly fmt --check
 
