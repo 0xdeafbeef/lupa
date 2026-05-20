@@ -49,6 +49,7 @@ lupa map <file-or-dir>...          # structural file map
 lupa show <file> <key>...          # source slices by symbol key
 lupa digest <dir>...               # compact directory/module overview
 lupa keys <file>                   # print only show keys and ranges
+lupa context <hit>...              # map rg-style line hits to symbols
 lupa help                          # command help
 ```
 
@@ -286,7 +287,40 @@ parse_config L70-L96
 
 This is useful after `show` reports ambiguity or no-match.
 
-## 12. Supported Languages
+## 12. `context`
+
+`context` maps `rg`-style line hits to semantic symbols.
+
+Usage:
+
+```bash
+rg -nH pattern src | lupa context
+lupa context src/lib.rs:42
+lupa context src/lib.rs:42:17
+```
+
+Output:
+
+```text
+src/lib.rs Person.new@L22-L28 hits L24 pub fn new(name: String) -> Self
+  parent Person@L10-L18 pub struct Person
+  siblings Person.hello@L30-L34
+```
+
+Requirements:
+
+- Accept direct `path:line` and `path:line:column` arguments.
+- With no arguments, read hits from stdin.
+- Accept normal `rg -nH` lines and `rg --vimgrep` `path:line:column:text` lines.
+- Parse each file once and deduplicate repeated hit lines per enclosing symbol.
+- Print the deepest enclosing symbol, compact hit lines, and the symbol signature.
+- Print parent and capped sibling context when available.
+- Do not print source bodies; use the emitted key with `show` for source.
+- If a hit is outside any symbol, print `no-symbol` and nearest top-level symbols when available.
+- Malformed hits, missing paths, unsupported files, and parse warnings are recoverable `# error:` / `# warning:` outputs.
+- `context` must not run search itself; `rg` remains the text search engine.
+
+## 13. Supported Languages
 
 v1 should support the languages that showed up in agent guidance and normal repo work:
 
@@ -310,7 +344,7 @@ Later:
 
 Language adapters must be additive. A weak adapter is acceptable only if it clearly reports limited support.
 
-## 13. Parser Adapter Contract
+## 14. Parser Adapter Contract
 
 Each adapter must provide:
 
@@ -332,7 +366,7 @@ Adapter obligations:
 
 Adapter output must not depend on renderer behavior.
 
-## 14. Ignore Rules
+## 15. Ignore Rules
 
 Default ignored directories:
 
@@ -352,7 +386,7 @@ __pycache__
 
 The tool may support `.lupaignore` later. v1 can rely on default ignores plus explicit paths.
 
-## 15. Error Handling
+## 16. Error Handling
 
 All user-facing failures should be concise and recoverable.
 
@@ -365,7 +399,7 @@ Rules:
 
 The CLI should avoid panic output in normal failure modes.
 
-## 16. Output Stability
+## 17. Output Stability
 
 Output is part of the contract.
 
@@ -379,7 +413,7 @@ Rules:
 - `NO_COLOR=1` disables color.
 - Do not wrap source lines.
 
-## 17. Performance Targets
+## 18. Performance Targets
 
 Baseline targets on a warm filesystem:
 
@@ -389,7 +423,7 @@ Baseline targets on a warm filesystem:
 
 No persistent index is required for v1. Parallel directory walking is allowed.
 
-## 18. Implementation Plan
+## 19. Implementation Plan
 
 Preferred implementation language: Rust.
 
@@ -415,7 +449,7 @@ src/adapters/typescript.rs
 src/adapters/markdown.rs
 ```
 
-## 19. Rust Style Gate
+## 20. Rust Style Gate
 
 The initial Rust scaffold should use strict linting and rustfmt settings.
 
@@ -529,7 +563,7 @@ because the rustfmt settings rely on unstable rustfmt options.
 
 If a lint is too noisy during bootstrap, prefer fixing the design or narrowing the code. Do not add broad `allow` attributes without a specific rationale in code.
 
-## 20. Acceptance Tests
+## 21. Acceptance Tests
 
 Minimum v1 tests:
 
@@ -541,10 +575,11 @@ Minimum v1 tests:
 6. Parse error warning appears when a parser reports partial output.
 7. Direct file invocation aliases to `map`.
 8. Directory `digest` skips ignored directories.
-9. `just fmt-check` passes.
-10. `just clippy` passes.
+9. `context` maps direct and stdin `rg` hits to enclosing symbols.
+10. `just fmt-check` passes.
+11. `just clippy` passes.
 
-## 21. Future Work
+## 22. Future Work
 
 Possible later features:
 

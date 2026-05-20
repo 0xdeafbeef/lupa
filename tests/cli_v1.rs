@@ -129,6 +129,89 @@ fn keys_prints_key_range_lines() {
 }
 
 #[test]
+fn context_maps_direct_line_hits_to_semantic_symbols() {
+    let stdout = run_lupa(&["context", "tests/fixtures/rust_symbols.rs:7"]);
+
+    assert_stdout_contains(
+        &stdout,
+        "tests/fixtures/rust_symbols.rs Alpha.new@L6-L8 hits L7 pub fn new(name: String) -> Self\n",
+    );
+    assert_stdout_contains(&stdout, "  parent Alpha@L1-L3 pub struct Alpha\n");
+    assert_stdout_contains(&stdout, "  siblings Alpha.name@L2 Alpha.greet@L10-L12\n");
+}
+
+#[test]
+fn context_reads_rg_hits_from_stdin_and_deduplicates_lines() {
+    let stdout = run_lupa_stdin(
+        &["context"],
+        "tests/fixtures/rust_symbols.rs:7:        Self { name }\n\
+         tests/fixtures/rust_symbols.rs:8:    }\n\
+         tests/fixtures/rust_symbols.rs:7:duplicate\n",
+    );
+
+    assert_stdout_contains(
+        &stdout,
+        "tests/fixtures/rust_symbols.rs Alpha.new@L6-L8 hits L7,L8 pub fn new(name: String) -> Self\n",
+    );
+}
+
+#[test]
+fn context_accepts_vimgrep_columns_and_non_rust_symbols() {
+    let stdout = run_lupa(&[
+        "context",
+        "tests/fixtures/source_shapes.py:7:15:async def start",
+    ]);
+
+    assert_stdout_contains(
+        &stdout,
+        "tests/fixtures/source_shapes.py Service.start@L7-L8 hits L7 async def start(self, retries: int = 1) -> str\n",
+    );
+    assert_stdout_contains(&stdout, "  parent Service@L1-L8 class Service\n");
+}
+
+#[test]
+fn context_reports_malformed_and_outside_symbol_hits() {
+    let stdout = run_lupa(&["context", "not-a-hit", "tests/fixtures/rust_symbols.rs:14"]);
+
+    assert_stdout_contains(&stdout, "# error: malformed context hit: not-a-hit\n");
+    assert_stdout_contains(
+        &stdout,
+        "tests/fixtures/rust_symbols.rs no-symbol hits L14\n",
+    );
+    assert_stdout_contains(
+        &stdout,
+        "  nearby before impl_Alpha@L5-L13 after Beta@L15\n",
+    );
+}
+
+#[test]
+fn context_keeps_separate_no_symbol_gaps() {
+    let stdout = run_lupa(&[
+        "context",
+        "tests/fixtures/rust_symbols.rs:4",
+        "tests/fixtures/rust_symbols.rs:14",
+    ]);
+
+    assert_stdout_contains(
+        &stdout,
+        "tests/fixtures/rust_symbols.rs no-symbol hits L4\n",
+    );
+    assert_stdout_contains(
+        &stdout,
+        "  nearby before Alpha@L1-L3 after impl_Alpha@L5-L13\n",
+    );
+    assert_stdout_contains(
+        &stdout,
+        "tests/fixtures/rust_symbols.rs no-symbol hits L14\n",
+    );
+    assert_stdout_contains(
+        &stdout,
+        "  nearby before impl_Alpha@L5-L13 after Beta@L15\n",
+    );
+    assert_stdout_lacks(&stdout, "no-symbol hits L4,L14");
+}
+
+#[test]
 fn digest_skips_ignored_directories() {
     let stdout = run_lupa(&["digest", DIGEST_FIXTURE]);
 
@@ -509,11 +592,20 @@ fn polyglot_keys_print_expected_ranges() {
 }
 
 fn run_lupa(args: &[&str]) -> String {
-    let output = Command::cargo_bin("lupa")
-        .expect("lupa binary should build")
-        .args(args)
-        .output()
-        .expect("lupa command should run");
+    run_lupa_inner(args, None)
+}
+
+fn run_lupa_stdin(args: &[&str], stdin: &str) -> String {
+    run_lupa_inner(args, Some(stdin))
+}
+
+fn run_lupa_inner(args: &[&str], stdin: Option<&str>) -> String {
+    let mut command = Command::cargo_bin("lupa").expect("lupa binary should build");
+    command.args(args);
+    if let Some(stdin) = stdin {
+        command.write_stdin(stdin);
+    }
+    let output = command.output().expect("lupa command should run");
     let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
     let stderr = String::from_utf8(output.stderr).expect("stderr should be utf-8");
 

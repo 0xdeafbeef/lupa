@@ -1,10 +1,11 @@
 use std::ffi::OsString;
+use std::io::Read as _;
 use std::path::PathBuf;
 
 use clap::error::ErrorKind;
 use clap::{Parser, Subcommand};
 
-use crate::{adapters, render, walk};
+use crate::{adapters, context, render, walk};
 
 #[derive(Debug, Parser)]
 #[command(name = "lupa", about = "Agent-first source navigation")]
@@ -32,6 +33,9 @@ enum Commands {
     },
     Keys {
         file: PathBuf,
+    },
+    Context {
+        hits: Vec<String>,
     },
 }
 
@@ -62,6 +66,7 @@ where
         Commands::Show { file, keys } => show(file, keys),
         Commands::Digest { paths } => digest(paths),
         Commands::Keys { file } => keys(file),
+        Commands::Context { hits } => context(hits),
     }
 }
 
@@ -69,7 +74,7 @@ fn direct_map_paths(args: &[OsString]) -> Option<Vec<PathBuf>> {
     let first = args.get(1)?;
     if matches!(
         first.to_str(),
-        Some("map" | "show" | "digest" | "keys" | "call" | "help")
+        Some("map" | "show" | "digest" | "keys" | "context" | "call" | "help")
     ) || first.to_string_lossy().starts_with('-')
     {
         return None;
@@ -155,6 +160,58 @@ fn keys(file: PathBuf) -> Result<String, String> {
         }
         Err(err) => Ok(format!("{err}\n")),
     }
+}
+
+fn context(inputs: Vec<String>) -> Result<String, String> {
+    let mut out = String::new();
+    let mut hits = Vec::new();
+    let inputs = if inputs.is_empty() {
+        let mut stdin = String::new();
+        std::io::stdin()
+            .read_to_string(&mut stdin)
+            .map_err(|err| format!("failed to read stdin: {err}"))?;
+        stdin.lines().map(str::to_owned).collect::<Vec<_>>()
+    } else {
+        inputs
+    };
+
+    for input in inputs {
+        match context::parse_hit(&input) {
+            Some(hit) => hits.push(hit),
+            None => out.push_str(&format!("# error: malformed context hit: {input}\n")),
+        }
+    }
+
+    if hits.is_empty() {
+        if out.is_empty() {
+            out.push_str("# error: no context hits\n");
+        }
+        return Ok(out);
+    }
+
+    let mut groups = Vec::<(PathBuf, Vec<usize>)>::new();
+    for hit in hits {
+        if let Some((_, lines)) = groups.iter_mut().find(|(path, _)| *path == hit.path) {
+            lines.push(hit.line);
+        } else {
+            groups.push((hit.path, vec![hit.line]));
+        }
+    }
+
+    for (path, lines) in groups {
+        if !path.exists() {
+            out.push_str(&format!("# error: path not found: {}\n", path.display()));
+            continue;
+        }
+        match adapters::parse_file(&path) {
+            Ok(file) => {
+                context::render_context(&file, &lines, &mut out).map_err(render_error)?;
+            }
+            Err(err) => push_error(&mut out, &err),
+        }
+    }
+
+    Ok(out)
 }
 
 fn push_error(out: &mut String, err: &str) {

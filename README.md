@@ -4,7 +4,7 @@
 
 It is a personal reimplementation of the parts of `ast-outline` that were
 actually useful in my own agent workflow: compact maps, source slices by stable
-keys, directory digests, and key/range listings.
+keys, directory digests, key/range listings, and semantic context for `rg` hits.
 
 Notice: this project is vibcoded. Expect sharp edges; trust the tests more
 than the implementation style.
@@ -35,6 +35,8 @@ Stop at the step that answers the question:
 3. **One symbol or markdown section** — `lupa show <file> <key>...`.
    Copy keys exactly from `lupa map`; multiple keys can be shown at once.
 4. **Only accepted keys and ranges** — `lupa keys <file>`.
+5. **Search hit context** — `rg -nH pattern src | lupa context`.
+   Converts raw `path:line` hits to enclosing symbol keys, parents, and siblings.
 
 Fall back to a full read only when you need context beyond the body `show`
 returned, or when `lupa` gives poor structure for that file or language.
@@ -47,6 +49,7 @@ lupa map <file-or-dir>
 lupa show <file> <key>...
 lupa digest <dir>
 lupa keys <file>
+lupa context <path:line>...
 ```
 
 Run local checks with:
