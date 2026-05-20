@@ -2,11 +2,15 @@ use std::fmt;
 
 use crate::model::{FileMap, Symbol};
 
+const DIGEST_MAX_FILES: usize = 80;
+const DIGEST_MAX_TOP: usize = 12;
+const DIGEST_MAX_CHILDREN: usize = 8;
+
 pub fn render_map(file: &FileMap, out: &mut impl fmt::Write) -> fmt::Result {
     let symbols = file.all_symbols();
     writeln!(
         out,
-        "# {} [{}] {} lines, {} bytes, {} symbols",
+        "# {} [{}] {}L {}B {}S",
         file.path.display(),
         file.language,
         file.line_count,
@@ -47,40 +51,59 @@ pub fn render_show(file: &FileMap, keys: &[String], out: &mut impl fmt::Write) -
 }
 
 pub fn render_digest(files: &[FileMap], out: &mut impl fmt::Write) -> fmt::Result {
-    for file in files {
-        writeln!(
+    if files.len() > DIGEST_MAX_FILES {
+        writeln!(out, "# truncated files {DIGEST_MAX_FILES}/{}", files.len())?;
+    }
+    for file in files.iter().take(DIGEST_MAX_FILES) {
+        write!(
             out,
-            "{} [{}] {} lines, {} symbols",
+            "{} [{}] {}L {}S",
             file.path.display(),
             file.language,
             file.line_count,
             file.all_symbols().len()
         )?;
-        let top = file
-            .symbols
-            .iter()
-            .map(|symbol| symbol.key.as_str())
-            .collect::<Vec<_>>()
-            .join(", ");
-        if !top.is_empty() {
-            writeln!(out, "  {top}")?;
+        if !file.parse_errors.is_empty() {
+            write!(out, " {}E", file.parse_errors.len())?;
         }
+        for symbol in file.symbols.iter().take(DIGEST_MAX_TOP) {
+            write!(out, " {}@{}", symbol.key, symbol.range)?;
+            let prefix = format!("{}.", symbol.key);
+            let children = symbol
+                .children
+                .iter()
+                .take(DIGEST_MAX_CHILDREN)
+                .map(|child| {
+                    child
+                        .key
+                        .strip_prefix(&prefix)
+                        .unwrap_or(child.key.as_str())
+                })
+                .collect::<Vec<_>>();
+            if !children.is_empty() {
+                write!(out, "[{}]", children.join(","))?;
+                if symbol.children.len() > DIGEST_MAX_CHILDREN {
+                    write!(out, "[+{}]", symbol.children.len() - DIGEST_MAX_CHILDREN)?;
+                }
+            }
+        }
+        if file.symbols.len() > DIGEST_MAX_TOP {
+            write!(out, " +{}", file.symbols.len() - DIGEST_MAX_TOP)?;
+        }
+        out.write_char('\n')?;
     }
     Ok(())
 }
 
 fn render_symbol(symbol: &Symbol, depth: usize, out: &mut impl fmt::Write) -> fmt::Result {
-    let indent = "    ".repeat(depth);
+    let indent = "  ".repeat(depth);
     writeln!(
         out,
-        "{}{}  {}  key={}",
-        indent, symbol.signature, symbol.range, symbol.key
+        "{}{} {} {}",
+        indent, symbol.range, symbol.key, symbol.signature
     )?;
     for child in &symbol.children {
         render_symbol(child, depth + 1, out)?;
-    }
-    if depth == 0 {
-        out.write_char('\n')?;
     }
     Ok(())
 }
@@ -102,16 +125,12 @@ fn matching_symbols<'a>(symbols: &'a [&Symbol], key: &str) -> Vec<&'a Symbol> {
 }
 
 fn render_no_match(
-    file: &FileMap,
+    _file: &FileMap,
     key: &str,
     symbols: &[&Symbol],
     out: &mut impl fmt::Write,
 ) -> fmt::Result {
-    writeln!(
-        out,
-        "# error: no symbol matching `{key}` in {}",
-        file.path.display()
-    )?;
+    writeln!(out, "# no {key}")?;
     let candidates = symbols
         .iter()
         .copied()
@@ -119,12 +138,12 @@ fn render_no_match(
         .take(8)
         .collect::<Vec<_>>();
     if !candidates.is_empty() {
-        writeln!(out, "# candidates:")?;
+        writeln!(out, "# candidates")?;
         for symbol in candidates {
             writeln!(
                 out,
-                "#   {} {} key={}",
-                symbol.signature, symbol.range, symbol.key
+                "# {}@{} {}",
+                symbol.key, symbol.range, symbol.signature
             )?;
         }
     }
@@ -132,44 +151,59 @@ fn render_no_match(
 }
 
 fn render_ambiguous(
-    file: &FileMap,
+    _file: &FileMap,
     key: &str,
     symbols: &[&Symbol],
     out: &mut impl fmt::Write,
 ) -> fmt::Result {
-    writeln!(
-        out,
-        "# error: ambiguous key `{key}` in {}",
-        file.path.display()
-    )?;
-    writeln!(out, "# matches:")?;
+    writeln!(out, "# amb {key}")?;
     for symbol in symbols {
         writeln!(
             out,
-            "#   {} {} key={}",
-            symbol.signature, symbol.range, symbol.key
+            "# {}@{} {}",
+            symbol.key, symbol.range, symbol.signature
         )?;
     }
     Ok(())
 }
 
 fn render_show_symbol(file: &FileMap, symbol: &Symbol, out: &mut impl fmt::Write) -> fmt::Result {
-    writeln!(
-        out,
-        "# {} {} key={} kind={}",
-        file.path.display(),
-        symbol.range,
-        symbol.key,
-        symbol.kind
-    )?;
-    if let Some(parent) = &symbol.parent_key {
-        writeln!(out, "# in: {parent}")?;
-    }
-    for (idx, line) in file.source.lines().enumerate() {
-        let line_no = idx + 1;
-        if (symbol.range.start_line..=symbol.range.end_line).contains(&line_no) {
-            writeln!(out, "{line_no}|{line}")?;
-        }
+    writeln!(out, "# {}@{}", symbol.key, symbol.range)?;
+    let lines = file
+        .source
+        .lines()
+        .enumerate()
+        .filter_map(|(idx, line)| {
+            let line_no = idx + 1;
+            (symbol.range.start_line..=symbol.range.end_line)
+                .contains(&line_no)
+                .then_some((line_no, line))
+        })
+        .collect::<Vec<_>>();
+    let trim = common_indent(&lines);
+    for (line_no, line) in lines {
+        writeln!(out, "{line_no}:{}", trim_indent(line, trim))?;
     }
     Ok(())
+}
+
+fn common_indent(lines: &[(usize, &str)]) -> usize {
+    lines
+        .iter()
+        .map(|(_, line)| line)
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| {
+            line.char_indices()
+                .find_map(|(idx, ch)| (!ch.is_whitespace()).then_some(idx))
+                .unwrap_or(line.len())
+        })
+        .min()
+        .unwrap_or(0)
+}
+
+fn trim_indent(line: &str, trim: usize) -> &str {
+    if line.len() <= trim {
+        return line.trim_start();
+    }
+    line.get(trim..).unwrap_or_else(|| line.trim_start())
 }

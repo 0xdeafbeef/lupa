@@ -39,6 +39,11 @@ pub fn run<I>(args: I) -> Result<String, String>
 where
     I: IntoIterator<Item = OsString>,
 {
+    let args = args.into_iter().collect::<Vec<_>>();
+    if let Some(paths) = direct_map_paths(&args) {
+        return map(paths);
+    }
+
     let cli = match Cli::try_parse_from(args) {
         Ok(cli) => cli,
         Err(err)
@@ -58,6 +63,20 @@ where
         Commands::Digest { paths } => digest(paths),
         Commands::Keys { file } => keys(file),
     }
+}
+
+fn direct_map_paths(args: &[OsString]) -> Option<Vec<PathBuf>> {
+    let first = args.get(1)?;
+    if matches!(
+        first.to_str(),
+        Some("map" | "show" | "digest" | "keys" | "call" | "help")
+    ) || first.to_string_lossy().starts_with('-')
+    {
+        return None;
+    }
+
+    let paths = args[1..].iter().map(PathBuf::from).collect::<Vec<_>>();
+    paths.iter().any(|path| path.exists()).then_some(paths)
 }
 
 fn map(paths: Vec<PathBuf>) -> Result<String, String> {

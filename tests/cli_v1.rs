@@ -18,12 +18,12 @@ fn map_prints_exact_keys_that_show_accepts() {
     let stdout = run_lupa(&["map", RUST_FIXTURE]);
 
     for key in [
-        "key=Alpha\n",
-        "key=Alpha.new\n",
-        "key=Alpha.greet\n",
-        "key=Beta\n",
-        "key=Beta.new\n",
-        "key=parse_config\n",
+        " Alpha ",
+        " Alpha.new ",
+        " Alpha.greet ",
+        " Beta ",
+        " Beta.new ",
+        " parse_config ",
     ] {
         assert_stdout_contains(&stdout, key);
     }
@@ -38,28 +38,39 @@ fn map_prints_exact_keys_that_show_accepts() {
     ]);
 
     for key in [
-        "key=Alpha.new",
-        "key=Alpha.greet",
-        "key=Beta.new",
-        "key=parse_config",
+        "# Alpha.new@",
+        "# Alpha.greet@",
+        "# Beta.new@",
+        "# parse_config@",
     ] {
         assert_stdout_contains(&stdout, key);
     }
 }
 
 #[test]
-fn show_accepts_multiple_keys_and_prints_plain_line_prefixes() {
+fn direct_file_invocation_aliases_to_map() {
+    let stdout = run_lupa(&[RUST_FIXTURE]);
+
+    assert_stdout_contains(
+        &stdout,
+        "# tests/fixtures/rust_symbols.rs [rust] 25L 299B 9S\n",
+    );
+    assert_stdout_contains(&stdout, " Alpha.new ");
+}
+
+#[test]
+fn show_accepts_multiple_keys_and_prints_compact_line_prefixes() {
     let stdout = run_lupa(&["show", RUST_FIXTURE, "Alpha.new", "Beta.new"]);
 
     for line in [
-        "# tests/fixtures/rust_symbols.rs L6-L8 key=Alpha.new kind=method\n",
-        "6|    pub fn new(name: String) -> Self {\n",
-        "7|        Self { name }\n",
-        "8|    }\n",
-        "# tests/fixtures/rust_symbols.rs L18-L20 key=Beta.new kind=method\n",
-        "18|    pub fn new() -> Self {\n",
-        "19|        Self\n",
-        "20|    }\n",
+        "# Alpha.new@L6-L8\n",
+        "6:pub fn new(name: String) -> Self {\n",
+        "7:    Self { name }\n",
+        "8:}\n",
+        "# Beta.new@L18-L20\n",
+        "18:pub fn new() -> Self {\n",
+        "19:    Self\n",
+        "20:}\n",
     ] {
         assert_stdout_contains(&stdout, line);
     }
@@ -70,16 +81,15 @@ fn ambiguous_suffix_reports_all_candidates() {
     let stdout = run_lupa(&["show", RUST_FIXTURE, "new"]);
 
     for line in [
-        "# error: ambiguous key `new` in tests/fixtures/rust_symbols.rs\n",
-        "# matches:\n",
-        "key=Alpha.new\n",
-        "key=Beta.new\n",
+        "# amb new\n",
+        "# Alpha.new@L6-L8 pub fn new(name: String) -> Self\n",
+        "# Beta.new@L18-L20 pub fn new() -> Self\n",
     ] {
         assert_stdout_contains(&stdout, line);
     }
 
-    assert_stdout_lacks(&stdout, "6|    pub fn new");
-    assert_stdout_lacks(&stdout, "18|    pub fn new");
+    assert_stdout_lacks(&stdout, "6:pub fn new");
+    assert_stdout_lacks(&stdout, "18:pub fn new");
 }
 
 #[test]
@@ -87,8 +97,8 @@ fn markdown_duplicate_headings_get_deterministic_keys() {
     let stdout = run_lupa(&["map", MARKDOWN_FIXTURE]);
     let repeated_stdout = run_lupa(&["map", MARKDOWN_FIXTURE]);
 
-    assert_stdout_contains(&stdout, "key=Install\n");
-    assert_stdout_contains(&stdout, "key=Install#2\n");
+    assert_stdout_contains(&stdout, " Install # Install\n");
+    assert_stdout_contains(&stdout, " Install#2 # Install\n");
     assert_eq!(stdout, repeated_stdout);
 }
 
@@ -169,10 +179,10 @@ fn no_block_pls_shapes_map_to_stable_keys() {
     let stdout = run_lupa(&["map", NO_BLOCK_PLS_FIXTURE]);
 
     for key in [
-        "key=Receiver.recv\n",
-        "key=Broadcaster.run\n",
-        "key=Storage.remove_outdated_states\n",
-        "key=poll_impl\n",
+        " Receiver.recv ",
+        " Broadcaster.run ",
+        " Storage.remove_outdated_states ",
+        " poll_impl ",
     ] {
         assert_stdout_contains(&stdout, key);
     }
@@ -189,11 +199,11 @@ fn no_block_pls_shapes_show_generic_impl_and_long_functions() {
     ]);
 
     for line in [
-        "key=Receiver.recv kind=method\n",
+        "Receiver.recv@L20-L22\n",
         "async fn recv(&mut self) -> Option<T> {\n",
-        "key=Storage.remove_outdated_states kind=method\n",
+        "Storage.remove_outdated_states@L52-L66\n",
         "pub async fn remove_outdated_states(&self, mc_seqno: u32) -> Result<(), Error> {\n",
-        "key=poll_impl kind=function\n",
+        "poll_impl@L83-L98\n",
         "fn poll_impl<'cx, Fut>(\n",
         "where\n",
     ] {
@@ -207,60 +217,60 @@ fn polyglot_map_prints_expected_keys() {
         (
             PYTHON_FIXTURE,
             &[
-                "key=Service\n",
-                "key=Service.__init__\n",
-                "key=Service.start\n",
-                "key=build_service\n",
+                " Service ",
+                " Service.__init__ ",
+                " Service.start ",
+                " build_service ",
             ][..],
         ),
         (
             JS_FIXTURE,
             &[
-                "key=Widget\n",
-                "key=Widget.constructor\n",
-                "key=Widget.render\n",
-                "key=makeWidget\n",
+                " Widget ",
+                " Widget.constructor ",
+                " Widget.render ",
+                " makeWidget ",
             ][..],
         ),
-        (JSX_FIXTURE, &["key=Card\n", "key=Shell\n"][..]),
+        (JSX_FIXTURE, &[" Card ", " Shell "][..]),
         (
             TS_FIXTURE,
             &[
-                "key=Repository\n",
-                "key=Repository.get\n",
-                "key=User\n",
-                "key=UserService\n",
-                "key=UserService.constructor\n",
-                "key=UserService.load\n",
-                "key=formatUser\n",
+                " Repository ",
+                " Repository.get ",
+                " User ",
+                " UserService ",
+                " UserService.constructor ",
+                " UserService.load ",
+                " formatUser ",
             ][..],
         ),
         (
             TSX_FIXTURE,
             &[
-                "key=ButtonProps\n",
-                "key=ButtonProps.label\n",
-                "key=ButtonProps.onClick\n",
-                "key=Button\n",
-                "key=Toolbar\n",
+                " ButtonProps ",
+                " ButtonProps.label ",
+                " ButtonProps.onClick ",
+                " Button ",
+                " Toolbar ",
             ][..],
         ),
         (
             GO_FIXTURE,
             &[
-                "key=Server\n",
-                "key=Server.name\n",
-                "key=Server.Handler\n",
-                "key=Server.clock\n",
-                "key=Server.Start\n",
-                "key=Handler\n",
-                "key=Handler.Handle\n",
-                "key=Handler.Close\n",
-                "key=Clock\n",
-                "key=Clock.Now\n",
-                "key=Alias\n",
-                "key=NewServer\n",
-                "key=helper\n",
+                " Server ",
+                " Server.name ",
+                " Server.Handler ",
+                " Server.clock ",
+                " Server.Start ",
+                " Handler ",
+                " Handler.Handle ",
+                " Handler.Close ",
+                " Clock ",
+                " Clock.Now ",
+                " Alias ",
+                " NewServer ",
+                " helper ",
             ][..],
         ),
     ] {
@@ -278,60 +288,60 @@ fn polyglot_show_prints_selected_symbols() {
             PYTHON_FIXTURE,
             &["Service.start", "build_service"][..],
             &[
-                "# tests/fixtures/source_shapes.py L7-L8 key=Service.start kind=method\n",
-                "7|    async def start(self, retries: int = 1) -> str:\n",
-                "# tests/fixtures/source_shapes.py L10-L11 key=build_service kind=function\n",
-                "10|def build_service(label: str) -> Service:\n",
+                "# Service.start@L7-L8\n",
+                "7:async def start(self, retries: int = 1) -> str:\n",
+                "# build_service@L10-L11\n",
+                "10:def build_service(label: str) -> Service:\n",
             ][..],
         ),
         (
             JS_FIXTURE,
             &["Widget.render", "makeWidget"][..],
             &[
-                "# tests/fixtures/source_shapes.js L6-L8 key=Widget.render kind=method\n",
-                "6|    render(target) {\n",
-                "# tests/fixtures/source_shapes.js L11-L13 key=makeWidget kind=function\n",
-                "11|export function makeWidget(name) {\n",
+                "# Widget.render@L6-L8\n",
+                "6:render(target) {\n",
+                "# makeWidget@L11-L13\n",
+                "11:export function makeWidget(name) {\n",
             ][..],
         ),
         (
             JSX_FIXTURE,
             &["Card", "Shell"][..],
             &[
-                "# tests/fixtures/source_shapes.jsx L1-L3 key=Card kind=function\n",
-                "1|export function Card({ title }) {\n",
-                "# tests/fixtures/source_shapes.jsx L5-L7 key=Shell kind=function\n",
-                "5|export const Shell = () => {\n",
+                "# Card@L1-L3\n",
+                "1:export function Card({ title }) {\n",
+                "# Shell@L5-L7\n",
+                "5:export const Shell = () => {\n",
             ][..],
         ),
         (
             TS_FIXTURE,
             &["UserService.load", "formatUser"][..],
             &[
-                "# tests/fixtures/source_shapes.ts L13-L15 key=UserService.load kind=method\n",
-                "13|    async load(id: string): Promise<User> {\n",
-                "# tests/fixtures/source_shapes.ts L18-L20 key=formatUser kind=function\n",
-                "18|export function formatUser(user: User): string {\n",
+                "# UserService.load@L13-L15\n",
+                "13:async load(id: string): Promise<User> {\n",
+                "# formatUser@L18-L20\n",
+                "18:export function formatUser(user: User): string {\n",
             ][..],
         ),
         (
             TSX_FIXTURE,
             &["Button", "Toolbar"][..],
             &[
-                "# tests/fixtures/source_shapes.tsx L6-L8 key=Button kind=function\n",
-                "6|export function Button(props: ButtonProps) {\n",
-                "# tests/fixtures/source_shapes.tsx L10-L12 key=Toolbar kind=function\n",
-                "10|export const Toolbar = () => {\n",
+                "# Button@L6-L8\n",
+                "6:export function Button(props: ButtonProps) {\n",
+                "# Toolbar@L10-L12\n",
+                "10:export const Toolbar = () => {\n",
             ][..],
         ),
         (
             GO_FIXTURE,
             &["Server.Start", "NewServer"][..],
             &[
-                "# tests/fixtures/source_shapes.go L26-L28 key=Server.Start kind=method\n",
-                "26|func (s *Server) Start(ctx context.Context) error {\n",
-                "# tests/fixtures/source_shapes.go L22-L24 key=NewServer kind=function\n",
-                "22|func NewServer(name string, handler Handler) *Server {\n",
+                "# Server.Start@L26-L28\n",
+                "26:func (s *Server) Start(ctx context.Context) error {\n",
+                "# NewServer@L22-L24\n",
+                "22:func NewServer(name string, handler Handler) *Server {\n",
             ][..],
         ),
     ] {

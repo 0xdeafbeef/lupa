@@ -30,8 +30,8 @@ Therefore v1 optimizes for text output that is easy for agents to read and reuse
 2. Every navigable item has a key.
    If `map` shows a symbol, it must also show the exact key accepted by `show`.
 
-3. Source output stays clean by default.
-   `show` prints normal source with plain line numbers, not hash-prefixed lines.
+3. Source output is compact by default.
+   `show` prints source lines as `<line>:<text>` and strips common leading indentation from the selected range.
 
 4. Failed commands should teach the next command.
    No-match output must include likely valid keys when possible.
@@ -119,7 +119,7 @@ README.Install
 
 Rules:
 
-- `map` must print `key=<symbol-key>` on every symbol line.
+- `map` must print each symbol key as its own whitespace-delimited field.
 - `show <file> <key>` must accept exactly the keys printed by `map`.
 - Unique suffixes are allowed for convenience, but ambiguity must be reported.
 - Ambiguous suffix errors must list matching full keys.
@@ -129,10 +129,9 @@ Rules:
 Example ambiguity:
 
 ```text
-# error: ambiguous key `new` in src/lib.rs
-# matches:
-#   Person.new L10-L18
-#   Session.new L44-L55
+# amb new
+# Person.new@L10-L18 pub fn new() -> Self
+# Session.new@L44-L55 pub fn new() -> Self
 ```
 
 ## 7. Line Ranges
@@ -174,26 +173,22 @@ lupa src/lib.rs
 Output format:
 
 ```text
-# src/lib.rs [rust] 240 lines, 8120 bytes, 3 types, 19 symbols
-pub struct Person  L10-L18  key=Person
-    pub name: String  L11  key=Person.name
-    pub fn new(name: String) -> Self  L22-L28  key=Person.new
-    fn hello(&self) -> String  L30-L34  key=Person.hello
-
-fn parse_config(path: &Path) -> Result<Config>  L70-L96  key=parse_config
+# src/lib.rs [rust] 240L 8120B 19S
+L10-L18 Person pub struct Person
+  L11 Person.name pub name: String
+  L22-L28 Person.new pub fn new(name: String) -> Self
+  L30-L34 Person.hello fn hello(&self) -> String
+L70-L96 parse_config fn parse_config(path: &Path) -> Result<Config>
 ```
 
 Requirements:
 
 - Include language, line count, byte count, and symbol counts in the header.
 - Print parse warnings immediately after the header.
-- Print exact `key=` values accepted by `show`.
+- Print exact keys accepted by `show`.
 - Print line ranges for every symbol.
 - Default output includes private symbols because agents often need implementation detail.
-- `--public` may restrict output to public/exported symbols.
-- `--no-fields` may suppress fields.
-- `--max-depth N` may limit nested output.
-- `--max-symbols N` may truncate very large files and print an explicit truncation note.
+- Do not add readability-only blank lines between top-level symbols.
 
 Markdown behavior:
 
@@ -216,31 +211,29 @@ lupa show src/lib.rs Person.new Person.hello
 Output format:
 
 ```text
-# src/lib.rs L22-L28 key=Person.new kind=method
-# in: pub struct Person
-22|    pub fn new(name: String) -> Self {
-23|        Self { name }
-24|    }
+# Person.new@L22-L28
+22:pub fn new(name: String) -> Self {
+23:    Self { name }
+24:}
 ```
 
 Requirements:
 
 - Multiple requested symbols are supported in one command.
-- Output sections are separated by headers.
-- Each source line includes a plain line-number prefix.
-- `show` must preserve exact source bytes except for the added line-number prefix.
+- Output sections are separated by compact `# key@range` headers.
+- Each source line includes a compact line-number prefix.
+- `show` strips common leading indentation from the selected range to reduce repeated whitespace tokens.
 - If a key is missing, print a no-match diagnostic and close candidates.
 - If a key is ambiguous, print all matching full keys and do not guess.
-- `show` should include immediate ancestor signatures by default.
-- `--body-only` may omit docs/attributes/signature wrappers when the language adapter can identify body ranges.
+- The command already names the file; do not repeat the file path or symbol kind in normal `show` headers.
 
 No-match example:
 
 ```text
-# error: no symbol matching `PipelineExecutor.execute` in crates/fleet-core/src/executor.rs
-# candidates:
-#   execute L120-L244 key=execute
-#   impl_PipelineExecutor.execute L120-L244 key=impl_PipelineExecutor.execute
+# no PipelineExecutor.execute
+# candidates
+# execute@L120-L244 fn execute(...)
+# impl_PipelineExecutor.execute@L120-L244 fn execute(...)
 ```
 
 ## 10. `digest`
@@ -251,25 +244,21 @@ Usage:
 
 ```bash
 lupa digest crates/fleet-core/src
-lupa digest src --max-files 80
+lupa digest src
 ```
 
 Output format:
 
 ```text
-crates/fleet-core/src/
-  executor.rs [rust] 920 lines, 6 types, 54 symbols
-    PipelineExecutor: execute, validation_hosts_for_queue_worktree, run_step
-    free: load_executor_config, format_status
-  store.rs [rust] 710 lines, 4 types, 38 symbols
-    SqliteStateStore: open, load_latest_report, save_pipeline_steps
+crates/fleet-core/src/executor.rs [rust] 920L 54S PipelineExecutor@L20-L80[execute,validation_hosts_for_queue_worktree,run_step][+6] load_executor_config@L120-L244
+crates/fleet-core/src/store.rs [rust] 710L 38S SqliteStateStore@L10-L90[open,load_latest_report,save_pipeline_steps]
 ```
 
 Requirements:
 
-- One compact block per directory.
 - One compact line per file.
-- Show top-level types and a capped method list.
+- Show top-level symbols and capped child lists.
+- Use fixed default caps and print explicit `+N` truncation markers.
 - Include parse warning counts.
 - Do not print method bodies.
 - Do not recurse into ignored/generated/vendor directories by default.
@@ -382,8 +371,8 @@ Output is part of the contract.
 Rules:
 
 - Headers start with `#`.
-- Machine-reusable fields use `key=value`.
-- Source line prefix format is fixed as `<line>|`.
+- Machine-reusable values are whitespace-delimited when possible; avoid `key=value` unless disambiguation needs it.
+- Source line prefix format is fixed as `<line>:`.
 - Ranges use `L<start-line>-L<end-line>`.
 - No ANSI color by default when stdout is not a TTY.
 - `NO_COLOR=1` disables color.
@@ -543,9 +532,9 @@ If a lint is too noisy during bootstrap, prefer fixing the design or narrowing t
 
 Minimum v1 tests:
 
-1. `map` prints exact `key=` values accepted by `show`.
+1. `map` prints exact keys accepted by `show`.
 2. `show` accepts multiple keys.
-3. `show` prints plain line-number prefixes for every source line.
+3. `show` prints compact line-number prefixes for every source line.
 4. Ambiguous suffix reports all candidate keys.
 5. Markdown duplicate headings get deterministic keys.
 6. Parse error warning appears when a parser reports partial output.

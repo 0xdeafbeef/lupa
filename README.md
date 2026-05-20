@@ -30,8 +30,8 @@ Pull method bodies only once you know which ones you need.
 
 Stop at the step that answers the question:
 
-1. **Unfamiliar directory** — `lupa digest <dir>`: one-page map.
-2. **One file's shape** — `lupa map <file>`: signatures with line ranges.
+1. **Unfamiliar directory** — `lupa digest <dir>`: capped compact map.
+2. **One file's shape** — `lupa map <file>`: compact signatures with line ranges.
 3. **One symbol or markdown section** — `lupa show <file> <key>...`.
    Copy keys exactly from `lupa map`; multiple keys can be shown at once.
 4. **Only accepted keys and ranges** — `lupa keys <file>`.
