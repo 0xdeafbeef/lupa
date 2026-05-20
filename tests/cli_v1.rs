@@ -1,7 +1,15 @@
 use assert_cmd::Command;
 
 const DIGEST_FIXTURE: &str = "tests/fixtures/digest_tree";
+const C_FIXTURE: &str = "tests/fixtures/source_shapes.c";
+const CC_FIXTURE: &str = "tests/fixtures/source_shapes.cc";
+const CPP_FIXTURE: &str = "tests/fixtures/source_shapes.cpp";
+const CXX_FIXTURE: &str = "tests/fixtures/source_shapes.cxx";
 const GO_FIXTURE: &str = "tests/fixtures/source_shapes.go";
+const H_FIXTURE: &str = "tests/fixtures/source_shapes.h";
+const HH_FIXTURE: &str = "tests/fixtures/source_shapes.hh";
+const HPP_FIXTURE: &str = "tests/fixtures/source_shapes.hpp";
+const HXX_FIXTURE: &str = "tests/fixtures/source_shapes.hxx";
 const JS_FIXTURE: &str = "tests/fixtures/source_shapes.js";
 const JSX_FIXTURE: &str = "tests/fixtures/source_shapes.jsx";
 const MARKDOWN_FIXTURE: &str = "tests/fixtures/duplicate_headings.md";
@@ -59,18 +67,18 @@ fn direct_file_invocation_aliases_to_map() {
 }
 
 #[test]
-fn show_accepts_multiple_keys_and_prints_compact_line_prefixes() {
+fn show_accepts_multiple_keys_and_prints_source_slices() {
     let stdout = run_lupa(&["show", RUST_FIXTURE, "Alpha.new", "Beta.new"]);
 
     for line in [
         "# Alpha.new@L6-L8\n",
-        "6:pub fn new(name: String) -> Self {\n",
-        "7:    Self { name }\n",
-        "8:}\n",
+        "pub fn new(name: String) -> Self {\n",
+        "    Self { name }\n",
+        "}\n",
         "# Beta.new@L18-L20\n",
-        "18:pub fn new() -> Self {\n",
-        "19:    Self\n",
-        "20:}\n",
+        "pub fn new() -> Self {\n",
+        "    Self\n",
+        "}\n",
     ] {
         assert_stdout_contains(&stdout, line);
     }
@@ -88,8 +96,8 @@ fn ambiguous_suffix_reports_all_candidates() {
         assert_stdout_contains(&stdout, line);
     }
 
-    assert_stdout_lacks(&stdout, "6:pub fn new");
-    assert_stdout_lacks(&stdout, "18:pub fn new");
+    assert_stdout_lacks(&stdout, "    Self { name }\n");
+    assert_stdout_lacks(&stdout, "    Self\n");
 }
 
 #[test]
@@ -134,7 +142,15 @@ fn digest_includes_polyglot_source_extensions() {
     let stdout = run_lupa(&["digest", DIGEST_FIXTURE]);
 
     for path in [
+        "tests/fixtures/digest_tree/visible.c",
+        "tests/fixtures/digest_tree/visible.cc",
+        "tests/fixtures/digest_tree/visible.cpp",
+        "tests/fixtures/digest_tree/visible.cxx",
         "tests/fixtures/digest_tree/visible.go",
+        "tests/fixtures/digest_tree/visible.h",
+        "tests/fixtures/digest_tree/visible.hh",
+        "tests/fixtures/digest_tree/visible.hpp",
+        "tests/fixtures/digest_tree/visible.hxx",
         "tests/fixtures/digest_tree/visible.js",
         "tests/fixtures/digest_tree/visible.jsx",
         "tests/fixtures/digest_tree/visible.py",
@@ -215,6 +231,39 @@ fn no_block_pls_shapes_show_generic_impl_and_long_functions() {
 fn polyglot_map_prints_expected_keys() {
     for (fixture, keys) in [
         (
+            C_FIXTURE,
+            &[
+                " Config ",
+                " Config.timeout_ms ",
+                " Config.name ",
+                " Mode ",
+                " helper ",
+                " run_loop ",
+            ][..],
+        ),
+        (
+            H_FIXTURE,
+            &[" HeaderConfig ", " HeaderConfig.retries ", " make_config "][..],
+        ),
+        (CC_FIXTURE, &[" util.add "][..]),
+        (
+            CPP_FIXTURE,
+            &[
+                " net.Client ",
+                " net.Client.connect ",
+                " net.Client.connect#2 ",
+                " net.Client.operator_eq ",
+                " net.identity ",
+            ][..],
+        ),
+        (CXX_FIXTURE, &[" math.square "][..]),
+        (
+            HPP_FIXTURE,
+            &[" api.Widget ", " api.Widget.render ", " api.make_widget "][..],
+        ),
+        (HH_FIXTURE, &[" HeaderOnly ", " HeaderOnly.value "][..]),
+        (HXX_FIXTURE, &[" headers.Kind "][..]),
+        (
             PYTHON_FIXTURE,
             &[
                 " Service ",
@@ -285,13 +334,41 @@ fn polyglot_map_prints_expected_keys() {
 fn polyglot_show_prints_selected_symbols() {
     for (fixture, keys, expected) in [
         (
+            C_FIXTURE,
+            &["run_loop", "Config"][..],
+            &[
+                "# run_loop@L15-L17\n",
+                "int run_loop(Config *config) {\n",
+                "# Config@L1-L4\n",
+                "typedef struct Config {\n",
+            ][..],
+        ),
+        (
+            H_FIXTURE,
+            &["make_config"][..],
+            &[
+                "# make_config@L5\n",
+                "int make_config(HeaderConfig *config);\n",
+            ][..],
+        ),
+        (
+            CPP_FIXTURE,
+            &["net.Client.connect#2", "net.identity"][..],
+            &[
+                "# net.Client.connect#2@L17-L19\n",
+                "int Client::connect(int timeout) {\n",
+                "# net.identity@L25-L28\n",
+                "template <class T>\n",
+            ][..],
+        ),
+        (
             PYTHON_FIXTURE,
             &["Service.start", "build_service"][..],
             &[
                 "# Service.start@L7-L8\n",
-                "7:async def start(self, retries: int = 1) -> str:\n",
+                "async def start(self, retries: int = 1) -> str:\n",
                 "# build_service@L10-L11\n",
-                "10:def build_service(label: str) -> Service:\n",
+                "def build_service(label: str) -> Service:\n",
             ][..],
         ),
         (
@@ -299,9 +376,9 @@ fn polyglot_show_prints_selected_symbols() {
             &["Widget.render", "makeWidget"][..],
             &[
                 "# Widget.render@L6-L8\n",
-                "6:render(target) {\n",
+                "render(target) {\n",
                 "# makeWidget@L11-L13\n",
-                "11:export function makeWidget(name) {\n",
+                "export function makeWidget(name) {\n",
             ][..],
         ),
         (
@@ -309,9 +386,9 @@ fn polyglot_show_prints_selected_symbols() {
             &["Card", "Shell"][..],
             &[
                 "# Card@L1-L3\n",
-                "1:export function Card({ title }) {\n",
+                "export function Card({ title }) {\n",
                 "# Shell@L5-L7\n",
-                "5:export const Shell = () => {\n",
+                "export const Shell = () => {\n",
             ][..],
         ),
         (
@@ -319,9 +396,9 @@ fn polyglot_show_prints_selected_symbols() {
             &["UserService.load", "formatUser"][..],
             &[
                 "# UserService.load@L13-L15\n",
-                "13:async load(id: string): Promise<User> {\n",
+                "async load(id: string): Promise<User> {\n",
                 "# formatUser@L18-L20\n",
-                "18:export function formatUser(user: User): string {\n",
+                "export function formatUser(user: User): string {\n",
             ][..],
         ),
         (
@@ -329,9 +406,9 @@ fn polyglot_show_prints_selected_symbols() {
             &["Button", "Toolbar"][..],
             &[
                 "# Button@L6-L8\n",
-                "6:export function Button(props: ButtonProps) {\n",
+                "export function Button(props: ButtonProps) {\n",
                 "# Toolbar@L10-L12\n",
-                "10:export const Toolbar = () => {\n",
+                "export const Toolbar = () => {\n",
             ][..],
         ),
         (
@@ -339,9 +416,9 @@ fn polyglot_show_prints_selected_symbols() {
             &["Server.Start", "NewServer"][..],
             &[
                 "# Server.Start@L26-L28\n",
-                "26:func (s *Server) Start(ctx context.Context) error {\n",
+                "func (s *Server) Start(ctx context.Context) error {\n",
                 "# NewServer@L22-L24\n",
-                "22:func NewServer(name string, handler Handler) *Server {\n",
+                "func NewServer(name string, handler Handler) *Server {\n",
             ][..],
         ),
     ] {
@@ -357,6 +434,31 @@ fn polyglot_show_prints_selected_symbols() {
 #[test]
 fn polyglot_keys_print_expected_ranges() {
     for (fixture, expected) in [
+        (
+            C_FIXTURE,
+            &[
+                "Config L1-L4\n",
+                "Config.timeout_ms L2\n",
+                "run_loop L15-L17\n",
+            ][..],
+        ),
+        (
+            CPP_FIXTURE,
+            &[
+                "net.Client L2-L11\n",
+                "net.Client.connect L6\n",
+                "net.Client.connect#2 L17-L19\n",
+                "net.identity L25-L28\n",
+            ][..],
+        ),
+        (
+            HPP_FIXTURE,
+            &[
+                "api.Widget L2-L5\n",
+                "api.Widget.render L4\n",
+                "api.make_widget L7\n",
+            ][..],
+        ),
         (
             PYTHON_FIXTURE,
             &[

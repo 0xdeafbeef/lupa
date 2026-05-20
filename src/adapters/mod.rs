@@ -1,3 +1,4 @@
+pub mod c_family;
 pub mod go;
 pub mod javascript;
 pub mod markdown;
@@ -15,6 +16,7 @@ pub fn parse_file(path: &Path) -> Result<FileMap, String> {
         .map_err(|err| format!("# error: failed to read {}: {err}", path.display()))?;
 
     match language {
+        Language::C | Language::Cpp => Ok(c_family::parse(path, language, source)),
         Language::Go => Ok(go::parse(path, source)),
         Language::JavaScript | Language::Jsx | Language::Tsx | Language::TypeScript => {
             Ok(javascript::parse(path, language, source))

@@ -3,6 +3,8 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Language {
+    C,
+    Cpp,
     Go,
     JavaScript,
     Jsx,
@@ -15,15 +17,20 @@ pub enum Language {
 
 impl Language {
     pub fn from_path(path: &std::path::Path) -> Option<Self> {
-        match path.extension().and_then(|ext| ext.to_str()) {
-            Some("go") => Some(Self::Go),
-            Some("js" | "cjs" | "mjs") => Some(Self::JavaScript),
-            Some("jsx") => Some(Self::Jsx),
-            Some("md" | "markdown" | "mdx") => Some(Self::Markdown),
-            Some("py" | "pyi") => Some(Self::Python),
-            Some("rs") => Some(Self::Rust),
-            Some("tsx") => Some(Self::Tsx),
-            Some("ts" | "mts" | "cts") => Some(Self::TypeScript),
+        let ext = path.extension().and_then(|ext| ext.to_str())?;
+        match ext.to_ascii_lowercase().as_str() {
+            "c" => Some(Self::C),
+            "c++" | "cc" | "cpp" | "cxx" | "h" | "h++" | "hh" | "hpp" | "hxx" | "inl" | "ipp" => {
+                Some(Self::Cpp)
+            }
+            "go" => Some(Self::Go),
+            "js" | "cjs" | "mjs" => Some(Self::JavaScript),
+            "jsx" => Some(Self::Jsx),
+            "md" | "markdown" | "mdx" => Some(Self::Markdown),
+            "py" | "pyi" => Some(Self::Python),
+            "rs" => Some(Self::Rust),
+            "tsx" => Some(Self::Tsx),
+            "ts" | "mts" | "cts" => Some(Self::TypeScript),
             _ => None,
         }
     }
@@ -32,6 +39,8 @@ impl Language {
 impl fmt::Display for Language {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::C => f.write_str("c"),
+            Self::Cpp => f.write_str("cpp"),
             Self::Go => f.write_str("go"),
             Self::JavaScript => f.write_str("javascript"),
             Self::Jsx => f.write_str("jsx"),

@@ -22,10 +22,10 @@ Add this to your agent instructions:
 ```markdown
 ## Code exploration — prefer `lupa` over full reads
 
-For `.rs`, `.py`, `.ts`, `.tsx`, `.js`, `.jsx`, `.go`, and large `.md` files,
-read structure with `lupa` before opening full contents. For unsupported
-languages, short docs, or known line ranges, use `rg` plus targeted source
-slices directly.
+For `.rs`, `.py`, `.ts`, `.tsx`, `.js`, `.jsx`, `.go`, `.c`, `.cc`, `.cpp`,
+`.cxx`, `.h`, `.hh`, `.hpp`, `.hxx`, and large `.md` files, read structure with
+`lupa` before opening full contents. For unsupported languages, short docs, or
+known line ranges, use `rg` plus targeted source slices directly.
 Pull method bodies only once you know which ones you need.
 
 Stop at the step that answers the question:

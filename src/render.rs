@@ -181,8 +181,8 @@ fn render_show_symbol(file: &FileMap, symbol: &Symbol, out: &mut impl fmt::Write
         })
         .collect::<Vec<_>>();
     let trim = common_indent(&lines);
-    for (line_no, line) in lines {
-        writeln!(out, "{line_no}:{}", trim_indent(line, trim))?;
+    for (_, line) in lines {
+        writeln!(out, "{}", trim_indent(line, trim))?;
     }
     Ok(())
 }

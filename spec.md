@@ -31,7 +31,7 @@ Therefore v1 optimizes for text output that is easy for agents to read and reuse
    If `map` shows a symbol, it must also show the exact key accepted by `show`.
 
 3. Source output is compact by default.
-   `show` prints source lines as `<line>:<text>` and strips common leading indentation from the selected range.
+   `show` prints source lines without added prefixes and strips common leading indentation from the selected range.
 
 4. Failed commands should teach the next command.
    No-match output must include likely valid keys when possible.
@@ -212,17 +212,18 @@ Output format:
 
 ```text
 # Person.new@L22-L28
-22:pub fn new(name: String) -> Self {
-23:    Self { name }
-24:}
+pub fn new(name: String) -> Self {
+    Self { name }
+}
 ```
 
 Requirements:
 
 - Multiple requested symbols are supported in one command.
 - Output sections are separated by compact `# key@range` headers.
-- Each source line includes a compact line-number prefix.
+- Source lines have no added line-number or separator prefix.
 - `show` strips common leading indentation from the selected range to reduce repeated whitespace tokens.
+- The section header range is the line anchor; use `sed -n '<range>p' <file>` or `nl -ba <file> | sed -n '<range>p'` when exact per-line citations are needed.
 - If a key is missing, print a no-match diagnostic and close candidates.
 - If a key is ambiguous, print all matching full keys and do not guess.
 - The command already names the file; do not repeat the file path or symbol kind in normal `show` headers.
@@ -294,6 +295,7 @@ v1 should support the languages that showed up in agent guidance and normal repo
 - TypeScript / TSX
 - JavaScript / JSX
 - Go
+- C / C++ / headers
 - Markdown
 
 Later:
@@ -302,7 +304,6 @@ Later:
 - Kotlin
 - Scala
 - C#
-- C/C++
 - Ruby
 - PHP
 - SQL
@@ -372,7 +373,7 @@ Rules:
 
 - Headers start with `#`.
 - Machine-reusable values are whitespace-delimited when possible; avoid `key=value` unless disambiguation needs it.
-- Source line prefix format is fixed as `<line>:`.
+- Successful `show` source lines have no added prefix; locations live in the `# key@range` header.
 - Ranges use `L<start-line>-L<end-line>`.
 - No ANSI color by default when stdout is not a TTY.
 - `NO_COLOR=1` disables color.
@@ -534,7 +535,7 @@ Minimum v1 tests:
 
 1. `map` prints exact keys accepted by `show`.
 2. `show` accepts multiple keys.
-3. `show` prints compact line-number prefixes for every source line.
+3. `show` prints source lines without added line-number prefixes.
 4. Ambiguous suffix reports all candidate keys.
 5. Markdown duplicate headings get deterministic keys.
 6. Parse error warning appears when a parser reports partial output.

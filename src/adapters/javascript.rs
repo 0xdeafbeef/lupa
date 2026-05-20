@@ -18,7 +18,12 @@ impl LanguageVariant {
             Language::JavaScript | Language::Jsx => Self::JavaScript,
             Language::Tsx => Self::Tsx,
             Language::TypeScript => Self::TypeScript,
-            Language::Go | Language::Markdown | Language::Python | Language::Rust => {
+            Language::C
+            | Language::Cpp
+            | Language::Go
+            | Language::Markdown
+            | Language::Python
+            | Language::Rust => {
                 unreachable!("javascript adapter only handles JavaScript and TypeScript languages")
             }
         }
