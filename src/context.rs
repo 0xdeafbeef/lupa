@@ -127,14 +127,16 @@ fn render_symbol_context(
         symbol.key,
         symbol.range,
         format_lines(lines),
-        symbol.signature
+        symbol.display_signature()
     )?;
 
     if let Some(parent) = parent_symbol(symbol, symbols) {
         writeln!(
             out,
             "  parent {}@{} {}",
-            parent.key, parent.range, parent.signature
+            parent.key,
+            parent.range,
+            parent.display_signature()
         )?;
     }
 

@@ -100,7 +100,10 @@ fn render_symbol(symbol: &Symbol, depth: usize, out: &mut impl fmt::Write) -> fm
     writeln!(
         out,
         "{}{} {} {}",
-        indent, symbol.range, symbol.key, symbol.signature
+        indent,
+        symbol.range,
+        symbol.key,
+        symbol.display_signature()
     )?;
     for child in &symbol.children {
         render_symbol(child, depth + 1, out)?;
@@ -143,7 +146,9 @@ fn render_no_match(
             writeln!(
                 out,
                 "# {}@{} {}",
-                symbol.key, symbol.range, symbol.signature
+                symbol.key,
+                symbol.range,
+                symbol.display_signature()
             )?;
         }
     }
@@ -161,7 +166,9 @@ fn render_ambiguous(
         writeln!(
             out,
             "# {}@{} {}",
-            symbol.key, symbol.range, symbol.signature
+            symbol.key,
+            symbol.range,
+            symbol.display_signature()
         )?;
     }
     Ok(())

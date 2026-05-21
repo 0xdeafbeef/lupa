@@ -16,6 +16,7 @@ const MARKDOWN_FIXTURE: &str = "tests/fixtures/duplicate_headings.md";
 const NO_BLOCK_PLS_FIXTURE: &str = "tests/fixtures/no_block_pls_shapes.rs";
 const PARSE_ERROR_FIXTURE: &str = "tests/fixtures/parse_error.rs";
 const PYTHON_FIXTURE: &str = "tests/fixtures/source_shapes.py";
+const RUST_ATTRIBUTES_FIXTURE: &str = "tests/fixtures/rust_attributes.rs";
 const RUST_FIXTURE: &str = "tests/fixtures/rust_symbols.rs";
 const TS_FIXTURE: &str = "tests/fixtures/source_shapes.ts";
 const TSX_FIXTURE: &str = "tests/fixtures/source_shapes.tsx";
@@ -126,6 +127,95 @@ fn keys_prints_key_range_lines() {
     }
 
     assert_stdout_lacks(&stdout, "key=");
+}
+
+#[test]
+fn rust_map_prints_attributes_before_signatures() {
+    let stdout = run_lupa(&["map", RUST_ATTRIBUTES_FIXTURE]);
+
+    for line in [
+        "L1-L6 TupleReader #[derive(Debug, Clone)] #[pyclass] pub struct TupleReader\n",
+        "  L4-L5 TupleReader.items #[pyo3(get)] items: Vec<u8>\n",
+        "  L10-L13 TupleReader.new #[new] pub fn new(items: Vec<u8>) -> Self\n",
+        "  L15-L18 TupleReader.remaining #[getter] pub fn remaining(&self) -> usize\n",
+        "L8-L19 impl_TupleReader #[pymethods] impl TupleReader\n",
+        "L21-L24 WireValue pub enum WireValue\n",
+        "  L22-L23 WireValue.Cell #[serde(rename = \"cell\")] Cell\n",
+    ] {
+        assert_stdout_contains(&stdout, line);
+    }
+}
+
+#[test]
+fn rust_show_includes_attached_attributes() {
+    let stdout = run_lupa(&["show", RUST_ATTRIBUTES_FIXTURE, "TupleReader.new"]);
+
+    for line in [
+        "# TupleReader.new@L10-L13\n",
+        "#[new]\n",
+        "pub fn new(items: Vec<u8>) -> Self {\n",
+        "    Self { items }\n",
+    ] {
+        assert_stdout_contains(&stdout, line);
+    }
+}
+
+#[test]
+fn rust_context_prints_attributes_in_semantic_anchor() {
+    let stdout = run_lupa(&["context", "tests/fixtures/rust_attributes.rs:10"]);
+
+    assert_stdout_contains(
+        &stdout,
+        "tests/fixtures/rust_attributes.rs TupleReader.new@L10-L13 hits L10 #[new] pub fn new(items: Vec<u8>) -> Self\n",
+    );
+    assert_stdout_contains(
+        &stdout,
+        "  parent TupleReader@L1-L6 #[derive(Debug, Clone)] #[pyclass] pub struct TupleReader\n",
+    );
+}
+
+#[test]
+fn rust_attrs_survive_intervening_comments() {
+    let stdout = run_lupa(&["show", RUST_ATTRIBUTES_FIXTURE, "documented_attr"]);
+
+    for line in [
+        "# documented_attr@L26-L28\n",
+        "#[outer]\n",
+        "// keep attr attached\n",
+        "pub fn documented_attr() {}\n",
+    ] {
+        assert_stdout_contains(&stdout, line);
+    }
+}
+
+#[test]
+fn rust_tuple_fields_group_attributes_visibility_and_comments() {
+    let stdout = run_lupa(&["map", RUST_ATTRIBUTES_FIXTURE]);
+
+    for line in [
+        "L30-L36 TupleAttrs pub struct TupleAttrs\n",
+        "  L31-L32 TupleAttrs.0 #[first] 0: pub u8\n",
+        "  L34-L35 TupleAttrs.1 #[second] 1: pub(crate) String\n",
+    ] {
+        assert_stdout_contains(&stdout, line);
+    }
+
+    for bogus_field in [
+        "TupleAttrs.0 #[first] 0: pub\n",
+        "TupleAttrs.1 1: u8\n",
+        "TupleAttrs.2 2: // separator\n",
+    ] {
+        assert_stdout_lacks(&stdout, bogus_field);
+    }
+}
+
+#[test]
+fn rust_module_attrs_do_not_leak_to_children() {
+    let stdout = run_lupa(&["map", RUST_ATTRIBUTES_FIXTURE]);
+
+    assert_stdout_contains(&stdout, "L40-L41 attr_mod.inner #[test] fn inner()\n");
+    assert_stdout_lacks(&stdout, "#[cfg(test)] fn inner()");
+    assert_stdout_lacks(&stdout, " attr_mod #[cfg(test)] mod attr_mod");
 }
 
 #[test]
@@ -300,7 +390,8 @@ fn no_block_pls_shapes_show_generic_impl_and_long_functions() {
     for line in [
         "Receiver.recv@L20-L22\n",
         "async fn recv(&mut self) -> Option<T> {\n",
-        "Storage.remove_outdated_states@L52-L66\n",
+        "Storage.remove_outdated_states@L51-L66\n",
+        "#[tracing::instrument(skip(self))]\n",
         "pub async fn remove_outdated_states(&self, mc_seqno: u32) -> Result<(), Error> {\n",
         "poll_impl@L83-L98\n",
         "fn poll_impl<'cx, Fut>(\n",

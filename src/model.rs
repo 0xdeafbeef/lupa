@@ -117,6 +117,7 @@ pub struct Symbol {
     pub kind: SymbolKind,
     pub name: String,
     pub signature: String,
+    pub attributes: Vec<String>,
     pub visibility: Option<String>,
     pub range: LineSpan,
     pub body_range: Option<LineSpan>,
@@ -137,12 +138,20 @@ impl Symbol {
             kind,
             name: name.into(),
             signature: signature.into(),
+            attributes: Vec::new(),
             visibility: None,
             range,
             body_range: None,
             parent_key: None,
             children: Vec::new(),
         }
+    }
+
+    pub fn display_signature(&self) -> String {
+        if self.attributes.is_empty() {
+            return self.signature.clone();
+        }
+        format!("{} {}", self.attributes.join(" "), self.signature)
     }
 }
 

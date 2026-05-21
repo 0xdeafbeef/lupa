@@ -99,6 +99,26 @@ struct Collector<'a> {
     pending_methods: BTreeMap<String, Vec<Symbol>>,
 }
 
+#[derive(Default)]
+struct Attributes {
+    values: Vec<String>,
+    start_line: Option<usize>,
+}
+
+impl Attributes {
+    fn clear(&mut self) {
+        self.values.clear();
+        self.start_line = None;
+    }
+
+    fn take(&mut self) -> Self {
+        Self {
+            values: std::mem::take(&mut self.values),
+            start_line: self.start_line.take(),
+        }
+    }
+}
+
 impl<'a> Collector<'a> {
     fn new(source: &'a str, local_types: BTreeSet<String>) -> Self {
         Self {
@@ -117,31 +137,42 @@ impl<'a> Collector<'a> {
     }
 
     fn collect_container(&mut self, node: Node<'_>, prefix: &str, symbols: &mut Vec<Symbol>) {
+        let mut attrs = Attributes::default();
         let mut cursor = node.walk();
         for child in node.named_children(&mut cursor) {
             match child.kind() {
+                "attribute_item" => self.push_attribute(child, &mut attrs),
                 "enum_item" => self.push_type_symbol(
                     child,
                     prefix,
                     SymbolKind::Enum,
                     Self::enum_children,
                     symbols,
+                    attrs.take(),
                 ),
                 "function_item" => {
-                    if let Some(symbol) =
-                        self.function_symbol(child, prefix, None, SymbolKind::Function)
-                    {
+                    if let Some(symbol) = self.function_symbol(
+                        child,
+                        prefix,
+                        None,
+                        SymbolKind::Function,
+                        attrs.take(),
+                    ) {
                         symbols.push(symbol);
                     }
                 }
-                "impl_item" => self.push_impl_symbol(child, prefix, symbols),
-                "mod_item" => self.collect_module(child, prefix, symbols),
+                "impl_item" => self.push_impl_symbol(child, prefix, symbols, attrs.take()),
+                "mod_item" => {
+                    attrs.clear();
+                    self.collect_module(child, prefix, symbols);
+                }
                 "struct_item" => self.push_type_symbol(
                     child,
                     prefix,
                     SymbolKind::Struct,
                     Self::struct_children,
                     symbols,
+                    attrs.take(),
                 ),
                 "trait_item" => self.push_type_symbol(
                     child,
@@ -149,8 +180,10 @@ impl<'a> Collector<'a> {
                     SymbolKind::Trait,
                     Self::trait_children,
                     symbols,
+                    attrs.take(),
                 ),
-                _ => {}
+                kind if is_comment_kind(kind) => {}
+                _ => attrs.clear(),
             }
         }
     }
@@ -173,6 +206,7 @@ impl<'a> Collector<'a> {
         kind: SymbolKind,
         children: fn(&mut Self, Node<'_>, &str) -> Vec<Symbol>,
         symbols: &mut Vec<Symbol>,
+        attrs: Attributes,
     ) {
         let Some(name) = self.node_field_text(node, "name") else {
             return;
@@ -180,7 +214,7 @@ impl<'a> Collector<'a> {
 
         let base_key = prefixed_key(prefix, name);
         let key = self.unique_key(&base_key);
-        let mut symbol = self.item_symbol(node, kind, name, &key, None);
+        let mut symbol = self.item_symbol(node, kind, name, &key, None, attrs);
         symbol.children = children(self, node, &key);
 
         if let Some(mut methods) = self.pending_methods.remove(&base_key) {
@@ -209,15 +243,36 @@ impl<'a> Collector<'a> {
         };
 
         let mut children = Vec::new();
+        let mut attrs = Attributes::default();
         let mut cursor = body.walk();
         for child in body.named_children(&mut cursor) {
-            if child.kind() == "enum_variant" {
+            match child.kind() {
+                "attribute_item" => {
+                    self.push_attribute(child, &mut attrs);
+                    continue;
+                }
+                kind if is_comment_kind(kind) => continue,
+                "enum_variant" => {}
+                _ => {
+                    attrs.clear();
+                    continue;
+                }
+            }
+
+            {
                 let Some(name) = self.node_field_text(child, "name") else {
+                    attrs.clear();
                     continue;
                 };
                 let key = self.unique_key(&format!("{parent_key}.{name}"));
-                let mut symbol =
-                    self.item_symbol(child, SymbolKind::Field, name, &key, Some(parent_key));
+                let mut symbol = self.item_symbol(
+                    child,
+                    SymbolKind::Field,
+                    name,
+                    &key,
+                    Some(parent_key),
+                    attrs.take(),
+                );
                 symbol.body_range = child.child_by_field_name("body").map(line_span);
                 children.push(symbol);
             }
@@ -231,15 +286,20 @@ impl<'a> Collector<'a> {
         };
 
         let mut children = Vec::new();
+        let mut attrs = Attributes::default();
         let mut cursor = body.walk();
         for child in body.named_children(&mut cursor) {
             match child.kind() {
+                "attribute_item" => self.push_attribute(child, &mut attrs),
                 "function_item" | "function_signature_item" => {
-                    if let Some(symbol) = self.method_symbol(child, parent_key, Some(parent_key)) {
+                    if let Some(symbol) =
+                        self.method_symbol(child, parent_key, Some(parent_key), attrs.take())
+                    {
                         children.push(symbol);
                     }
                 }
-                _ => {}
+                kind if is_comment_kind(kind) => {}
+                _ => attrs.clear(),
             }
         }
         children
@@ -247,36 +307,94 @@ impl<'a> Collector<'a> {
 
     fn named_field_symbols(&mut self, node: Node<'_>, parent_key: &str) -> Vec<Symbol> {
         let mut children = Vec::new();
+        let mut attrs = Attributes::default();
         let mut cursor = node.walk();
         for child in node.named_children(&mut cursor) {
-            if child.kind() != "field_declaration" {
-                continue;
+            match child.kind() {
+                "attribute_item" => {
+                    self.push_attribute(child, &mut attrs);
+                    continue;
+                }
+                kind if is_comment_kind(kind) => continue,
+                "field_declaration" => {}
+                _ => {
+                    attrs.clear();
+                    continue;
+                }
             }
 
             let Some(name) = self.node_field_text(child, "name") else {
+                attrs.clear();
                 continue;
             };
             let key = self.unique_key(&format!("{parent_key}.{name}"));
-            children.push(self.item_symbol(child, SymbolKind::Field, name, &key, Some(parent_key)));
+            children.push(self.item_symbol(
+                child,
+                SymbolKind::Field,
+                name,
+                &key,
+                Some(parent_key),
+                attrs.take(),
+            ));
         }
         children
     }
 
     fn ordered_field_symbols(&mut self, node: Node<'_>, parent_key: &str) -> Vec<Symbol> {
         let mut children = Vec::new();
+        let mut attrs = Attributes::default();
+        let mut visibility = None;
+        let mut visibility_start_line = None;
+        let mut idx = 0;
         let mut cursor = node.walk();
-        for (idx, child) in node.children_by_field_name("type", &mut cursor).enumerate() {
+        for child in node.named_children(&mut cursor) {
+            match child.kind() {
+                "attribute_item" => {
+                    self.push_attribute(child, &mut attrs);
+                    continue;
+                }
+                "visibility_modifier" => {
+                    visibility = Some(self.collapsed_text(child));
+                    visibility_start_line = Some(child.start_position().row + 1);
+                    continue;
+                }
+                kind if is_comment_kind(kind) => continue,
+                _ => {}
+            }
+
             let name = idx.to_string();
             let key = self.unique_key(&format!("{parent_key}.{name}"));
-            let signature = format!("{name}: {}", self.collapsed_text(child));
-            let mut symbol = Symbol::new(key, SymbolKind::Field, name, signature, line_span(child));
+            let type_text = self.collapsed_text(child);
+            let signature = if let Some(visibility) = &visibility {
+                format!("{name}: {visibility} {type_text}")
+            } else {
+                format!("{name}: {type_text}")
+            };
+            let attrs = attrs.take();
+            let start_line = attrs.start_line.or(visibility_start_line.take());
+            let mut symbol = Symbol::new(
+                key,
+                SymbolKind::Field,
+                name,
+                signature,
+                line_span_with_attrs(child, start_line),
+            );
+            symbol.attributes = attrs.values;
+            symbol.visibility = visibility.take();
             symbol.parent_key = Some(parent_key.to_owned());
             children.push(symbol);
+            idx += 1;
         }
         children
     }
 
-    fn push_impl_symbol(&mut self, node: Node<'_>, prefix: &str, symbols: &mut Vec<Symbol>) {
+    fn push_impl_symbol(
+        &mut self,
+        node: Node<'_>,
+        prefix: &str,
+        symbols: &mut Vec<Symbol>,
+        attrs: Attributes,
+    ) {
         let Some(type_node) = node.child_by_field_name("type") else {
             return;
         };
@@ -287,7 +405,7 @@ impl<'a> Collector<'a> {
             .child_by_field_name("trait")
             .map(|trait_node| self.collapsed_text(trait_node));
         let impl_key = self.impl_key(&type_name, trait_name.as_deref());
-        let mut symbol = self.item_symbol(node, SymbolKind::Impl, "impl", &impl_key, None);
+        let mut symbol = self.item_symbol(node, SymbolKind::Impl, "impl", &impl_key, None, attrs);
 
         let local_type_key = self.local_type_key(prefix, type_node);
         let mut methods = Vec::new();
@@ -309,15 +427,30 @@ impl<'a> Collector<'a> {
 
     fn impl_methods(&mut self, body: Node<'_>, parent_key: &str) -> Vec<Symbol> {
         let mut methods = Vec::new();
+        let mut attrs = Attributes::default();
         let mut cursor = body.walk();
         for child in body.named_children(&mut cursor) {
-            if child.kind() == "function_item" {
-                if let Some(symbol) = self.method_symbol(child, parent_key, Some(parent_key)) {
-                    methods.push(symbol);
+            match child.kind() {
+                "attribute_item" => self.push_attribute(child, &mut attrs),
+                "function_item" => {
+                    if let Some(symbol) =
+                        self.method_symbol(child, parent_key, Some(parent_key), attrs.take())
+                    {
+                        methods.push(symbol);
+                    }
                 }
+                kind if is_comment_kind(kind) => {}
+                _ => attrs.clear(),
             }
         }
         methods
+    }
+
+    fn push_attribute(&self, node: Node<'_>, attrs: &mut Attributes) {
+        if attrs.start_line.is_none() {
+            attrs.start_line = Some(node.start_position().row + 1);
+        }
+        attrs.values.push(self.collapsed_text(node));
     }
 
     fn attach_method(&mut self, symbols: &mut [Symbol], type_key: &str, method: Symbol) {
@@ -337,11 +470,12 @@ impl<'a> Collector<'a> {
         prefix: &str,
         parent_key: Option<&str>,
         kind: SymbolKind,
+        attrs: Attributes,
     ) -> Option<Symbol> {
         let name = self.node_field_text(node, "name")?;
         let base_key = prefixed_key(prefix, name);
         let key = self.unique_key(&base_key);
-        Some(self.item_symbol(node, kind, name, &key, parent_key))
+        Some(self.item_symbol(node, kind, name, &key, parent_key, attrs))
     }
 
     fn method_symbol(
@@ -349,10 +483,11 @@ impl<'a> Collector<'a> {
         node: Node<'_>,
         parent_key: &str,
         parent: Option<&str>,
+        attrs: Attributes,
     ) -> Option<Symbol> {
         let name = self.node_field_text(node, "name")?;
         let key = self.unique_key(&format!("{parent_key}.{name}"));
-        Some(self.item_symbol(node, SymbolKind::Method, name, &key, parent))
+        Some(self.item_symbol(node, SymbolKind::Method, name, &key, parent, attrs))
     }
 
     fn item_symbol(
@@ -362,8 +497,16 @@ impl<'a> Collector<'a> {
         name: &str,
         key: &str,
         parent_key: Option<&str>,
+        attrs: Attributes,
     ) -> Symbol {
-        let mut symbol = Symbol::new(key, kind, name, self.signature(node), line_span(node));
+        let mut symbol = Symbol::new(
+            key,
+            kind,
+            name,
+            self.signature(node),
+            line_span_with_attrs(node, attrs.start_line),
+        );
+        symbol.attributes = attrs.values;
         symbol.visibility = self.visibility(node);
         symbol.body_range = node.child_by_field_name("body").map(line_span);
         symbol.parent_key = parent_key.map(str::to_owned);
@@ -440,6 +583,10 @@ fn named_child_of_kind<'tree>(node: Node<'tree>, kind: &str) -> Option<Node<'tre
     child
 }
 
+fn is_comment_kind(kind: &str) -> bool {
+    matches!(kind, "line_comment" | "block_comment")
+}
+
 fn type_name(node: Node<'_>, source: &[u8]) -> Option<String> {
     match node.kind() {
         "identifier" | "type_identifier" => node.utf8_text(source).ok().map(str::to_owned),
@@ -488,4 +635,9 @@ fn collapse_whitespace(text: &str) -> String {
 
 fn line_span(node: Node<'_>) -> LineSpan {
     LineSpan::new(node.start_position().row + 1, node.end_position().row + 1)
+}
+
+fn line_span_with_attrs(node: Node<'_>, start_line: Option<usize>) -> LineSpan {
+    let span = line_span(node);
+    LineSpan::new(start_line.unwrap_or(span.start_line), span.end_line)
 }

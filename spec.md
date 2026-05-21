@@ -86,6 +86,7 @@ struct Symbol {
     kind: SymbolKind,
     name: String,
     signature: String,
+    attributes: Vec<String>,
     visibility: Option<String>,
     range: LineSpan,
     body_range: Option<LineSpan>,
@@ -188,6 +189,7 @@ Requirements:
 - Print parse warnings immediately after the header.
 - Print exact keys accepted by `show`.
 - Print line ranges for every symbol.
+- Print attributes before signatures when the adapter provides them.
 - Default output includes private symbols because agents often need implementation detail.
 - Do not add readability-only blank lines between top-level symbols.
 
@@ -222,6 +224,7 @@ Requirements:
 
 - Multiple requested symbols are supported in one command.
 - Output sections are separated by compact `# key@range` headers.
+- Ranges include attached attributes when the adapter reports them, so `show` includes annotations such as `#[new]` and any comments between the first attached attribute and the item.
 - Source lines have no added line-number or separator prefix.
 - `show` strips common leading indentation from the selected range to reduce repeated whitespace tokens.
 - The section header range is the line anchor; use `sed -n '<range>p' <file>` or `nl -ba <file> | sed -n '<range>p'` when exact per-line citations are needed.
@@ -359,6 +362,8 @@ Adapter obligations:
 
 - Produce deterministic `Symbol.key`.
 - Produce accurate `signature`.
+- Produce attached `attributes` separately from `signature` when the language has item annotations.
+- Attach attributes only to emitted symbols. If an adapter treats a namespace construct as key-prefix-only, its attributes must not be inherited by child symbols.
 - Produce `range` for the full declaration.
 - Produce `body_range` when available.
 - Preserve source line numbers.
