@@ -1,10 +1,11 @@
 use std::ffi::OsString;
-use std::io::Read as _;
-use std::path::PathBuf;
+use std::io::{IsTerminal as _, Read as _};
+use std::path::{Path, PathBuf};
 
 use clap::error::ErrorKind;
 use clap::{Parser, Subcommand};
 
+use crate::model::{FileMap, Language};
 use crate::{adapters, context, render, walk};
 
 #[derive(Debug, Parser)]
@@ -86,6 +87,14 @@ fn direct_map_paths(args: &[OsString]) -> Option<Vec<PathBuf>> {
 
 fn map(paths: Vec<PathBuf>) -> Result<String, String> {
     let mut out = String::new();
+    if let Some(file) = stdin_file_for_single_language_arg(&paths)? {
+        render::render_map(&file, &mut out).map_err(render_error)?;
+        return Ok(out);
+    }
+    if paths.len() > 1 && starts_with_language_token(&paths) {
+        return Ok("# error: stdin language mode accepts exactly one language token\n".to_owned());
+    }
+
     for path in paths {
         if !path.exists() {
             out.push_str(&format!("# error: path not found: {}\n", path.display()));
@@ -109,6 +118,12 @@ fn map(paths: Vec<PathBuf>) -> Result<String, String> {
 }
 
 fn show(file: PathBuf, keys: Vec<String>) -> Result<String, String> {
+    if let Some(file) = stdin_file_for_language_arg(&file)? {
+        let mut out = String::new();
+        render::render_show(&file, &keys, &mut out).map_err(render_error)?;
+        return Ok(out);
+    }
+
     if !file.exists() {
         return Ok(format!("# error: path not found: {}\n", file.display()));
     }
@@ -149,6 +164,12 @@ fn digest(paths: Vec<PathBuf>) -> Result<String, String> {
 }
 
 fn keys(file: PathBuf) -> Result<String, String> {
+    if let Some(file) = stdin_file_for_language_arg(&file)? {
+        let mut out = String::new();
+        render::render_keys(&file, &mut out).map_err(render_error)?;
+        return Ok(out);
+    }
+
     if !file.exists() {
         return Ok(format!("# error: path not found: {}\n", file.display()));
     }
@@ -212,6 +233,49 @@ fn context(inputs: Vec<String>) -> Result<String, String> {
     }
 
     Ok(out)
+}
+
+fn stdin_file_for_single_language_arg(paths: &[PathBuf]) -> Result<Option<FileMap>, String> {
+    let [path] = paths else {
+        return Ok(None);
+    };
+    stdin_file_for_language_arg(path)
+}
+
+fn stdin_file_for_language_arg(path: &Path) -> Result<Option<FileMap>, String> {
+    let Some(language) = language_token(path) else {
+        return Ok(None);
+    };
+    let Some(source) = read_source_stdin()? else {
+        return Ok(None);
+    };
+    adapters::parse_source(Path::new("-"), language, source).map(Some)
+}
+
+fn starts_with_language_token(paths: &[PathBuf]) -> bool {
+    paths
+        .first()
+        .is_some_and(|path| language_token(path).is_some())
+}
+
+fn language_token(path: &Path) -> Option<Language> {
+    path.to_str().and_then(Language::from_token)
+}
+
+fn read_source_stdin() -> Result<Option<String>, String> {
+    let mut stdin = std::io::stdin();
+    if stdin.is_terminal() {
+        return Ok(None);
+    }
+
+    let mut source = String::new();
+    stdin
+        .read_to_string(&mut source)
+        .map_err(|err| format!("# error: failed to read stdin: {err}"))?;
+    if source.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(source))
 }
 
 fn push_error(out: &mut String, err: &str) {

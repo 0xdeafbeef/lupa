@@ -34,6 +34,22 @@ impl Language {
             _ => None,
         }
     }
+
+    pub fn from_token(token: &str) -> Option<Self> {
+        match token {
+            "c" => Some(Self::C),
+            "cpp" => Some(Self::Cpp),
+            "go" => Some(Self::Go),
+            "javascript" => Some(Self::JavaScript),
+            "jsx" => Some(Self::Jsx),
+            "markdown" => Some(Self::Markdown),
+            "python" => Some(Self::Python),
+            "rust" => Some(Self::Rust),
+            "tsx" => Some(Self::Tsx),
+            "typescript" => Some(Self::TypeScript),
+            _ => None,
+        }
+    }
 }
 
 impl fmt::Display for Language {

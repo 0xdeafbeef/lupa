@@ -46,9 +46,12 @@ Therefore v1 optimizes for text output that is easy for agents to read and reuse
 
 ```text
 lupa map <file-or-dir>...          # structural file map
+lupa map <language>                # structural map for source read from stdin
 lupa show <file> <key>...          # source slices by symbol key
+lupa show <language> <key>...      # source slices from stdin by symbol key
 lupa digest <dir>...               # compact directory/module overview
 lupa keys <file>                   # print only show keys and ranges
+lupa keys <language>               # print stdin show keys and ranges
 lupa context <hit>...              # map rg-style line hits to symbols
 lupa help                          # command help
 ```
@@ -186,6 +189,7 @@ L70-L96 parse_config fn parse_config(path: &Path) -> Result<Config>
 Requirements:
 
 - Include language, line count, byte count, and symbol counts in the header.
+- For stdin source, use `-` as the header path.
 - Print parse warnings immediately after the header.
 - Print exact keys accepted by `show`.
 - Print line ranges for every symbol.

@@ -130,6 +130,78 @@ fn keys_prints_key_range_lines() {
 }
 
 #[test]
+fn stdin_map_accepts_canonical_language_token() {
+    let stdout = run_lupa_stdin(&["map", "rust"], include_str!("fixtures/rust_symbols.rs"));
+
+    assert_stdout_contains(&stdout, "# - [rust] 25L 299B 9S\n");
+    assert_stdout_contains(&stdout, " Alpha.new ");
+}
+
+#[test]
+fn stdin_show_accepts_canonical_language_token() {
+    let stdout = run_lupa_stdin(
+        &["show", "rust", "Alpha.new"],
+        include_str!("fixtures/rust_symbols.rs"),
+    );
+
+    assert_stdout_contains(&stdout, "# Alpha.new@L6-L8\n");
+    assert_stdout_contains(&stdout, "pub fn new(name: String) -> Self {\n");
+    assert_stdout_lacks(&stdout, "# - [rust]");
+}
+
+#[test]
+fn stdin_keys_accepts_canonical_language_token() {
+    let stdout = run_lupa_stdin(&["keys", "rust"], include_str!("fixtures/rust_symbols.rs"));
+
+    for line in [
+        "Alpha L1-L3\n",
+        "Alpha.new L6-L8\n",
+        "parse_config L23-L25\n",
+    ] {
+        assert_stdout_contains(&stdout, line);
+    }
+}
+
+#[test]
+fn stdin_map_dispatches_non_rust_language_tokens() {
+    let stdout = run_lupa_stdin(
+        &["map", "go"],
+        "package main\n\ntype Server struct {}\n\nfunc NewServer() Server { return Server{} }\n",
+    );
+
+    assert_stdout_contains(&stdout, "# - [go] 5L 81B 2S\n");
+    assert_stdout_contains(&stdout, " Server type Server struct\n");
+    assert_stdout_contains(&stdout, " NewServer func NewServer() Server\n");
+}
+
+#[test]
+fn stdin_language_mode_rejects_extension_aliases() {
+    let stdout = run_lupa_stdin(&["map", "rs"], include_str!("fixtures/rust_symbols.rs"));
+
+    assert_eq!(stdout, "# error: path not found: rs\n");
+}
+
+#[test]
+fn stdin_language_mode_rejects_mixed_map_args() {
+    let stdout = run_lupa_stdin(
+        &["map", "rust", RUST_FIXTURE],
+        include_str!("fixtures/rust_symbols.rs"),
+    );
+
+    assert_eq!(
+        stdout,
+        "# error: stdin language mode accepts exactly one language token\n"
+    );
+}
+
+#[test]
+fn language_token_without_stdin_falls_back_to_path_mode() {
+    let stdout = run_lupa(&["map", "rust"]);
+
+    assert_eq!(stdout, "# error: path not found: rust\n");
+}
+
+#[test]
 fn rust_map_prints_attributes_before_signatures() {
     let stdout = run_lupa(&["map", RUST_ATTRIBUTES_FIXTURE]);
 

@@ -46,9 +46,12 @@ returned, or when `lupa` gives poor structure for that file or language.
 
 ```text
 lupa map <file-or-dir>
+lupa map <language>        # read source from stdin
 lupa show <file> <key>...
+lupa show <language> <key>...
 lupa digest <dir>
 lupa keys <file>
+lupa keys <language>
 lupa context <path:line>...
 ```
 

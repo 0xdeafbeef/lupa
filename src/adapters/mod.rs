@@ -15,6 +15,10 @@ pub fn parse_file(path: &Path) -> Result<FileMap, String> {
     let source = std::fs::read_to_string(path)
         .map_err(|err| format!("# error: failed to read {}: {err}", path.display()))?;
 
+    parse_source(path, language, source)
+}
+
+pub fn parse_source(path: &Path, language: Language, source: String) -> Result<FileMap, String> {
     match language {
         Language::C | Language::Cpp => Ok(c_family::parse(path, language, source)),
         Language::Go => Ok(go::parse(path, source)),
