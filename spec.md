@@ -127,7 +127,10 @@ Rules:
 - `map` must print each symbol key as its own whitespace-delimited field.
 - `show <file> <key>` must accept exactly the keys printed by `map`.
 - Unique suffixes are allowed for convenience, but ambiguity must be reported.
-- Ambiguous suffix errors must list matching full keys.
+- If exact and suffix lookup fail, `show` may relax dotted parent segments from
+  the right. The leaf segment must match exactly, while parent segments may be
+  suffixes, so `Storage.open` can select `CoreStorage.open` when unique.
+- Ambiguous suffix or relaxed-match errors must list matching full keys.
 - Keys must be deterministic for a file content snapshot.
 - Keys must not be derived from formatted signatures.
 
@@ -232,7 +235,7 @@ Requirements:
 - Source lines have no added line-number or separator prefix.
 - `show` strips common leading indentation from the selected range to reduce repeated whitespace tokens.
 - The section header range is the line anchor; use `sed -n '<range>p' <file>` or `nl -ba <file> | sed -n '<range>p'` when exact per-line citations are needed.
-- If a key is missing, print a no-match diagnostic and close candidates.
+- If a key is missing after exact, suffix, and relaxed lookup, print a no-match diagnostic and close candidates.
 - If a key is ambiguous, print all matching full keys and do not guess.
 - The command already names the file; do not repeat the file path or symbol kind in normal `show` headers.
 

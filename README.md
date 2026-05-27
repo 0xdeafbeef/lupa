@@ -34,6 +34,10 @@ Stop at the step that answers the question:
 2. **One file's shape** — `lupa map <file>`: compact signatures with line ranges.
 3. **One symbol or markdown section** — `lupa show <file> <key>...`.
    Copy keys exactly from `lupa map`; multiple keys can be shown at once.
+   Unique suffixes and relaxed parent suffixes are accepted, so
+   `lupa show file.rs open` or `lupa show file.rs Storage.open` can select
+   `CoreStorage.open` when unique. If `show` prints `# no` with candidates or
+   `# amb`, retry with one of the full keys it lists.
 4. **Only accepted keys and ranges** — `lupa keys <file>`.
 5. **Search hit context** — `rg -nH pattern src | lupa context`.
    Converts raw `path:line` hits to enclosing symbol keys, parents, and siblings.

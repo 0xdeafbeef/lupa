@@ -102,6 +102,114 @@ fn ambiguous_suffix_reports_all_candidates() {
 }
 
 #[test]
+fn show_relaxes_parent_segments_when_unambiguous() {
+    let stdout = run_lupa_stdin(
+        &["show", "rust", "Storage.open"],
+        r"
+pub struct CoreStorage;
+
+impl CoreStorage {
+    pub fn open() -> Self {
+        Self
+    }
+
+    pub fn open_stats(&self) -> usize {
+        1
+    }
+}
+",
+    );
+
+    assert_stdout_contains(&stdout, "# CoreStorage.open@");
+    assert_stdout_contains(&stdout, "pub fn open() -> Self {\n");
+    assert_stdout_lacks(&stdout, "# CoreStorage.open_stats@");
+    assert_stdout_lacks(&stdout, "pub fn open_stats(&self) -> usize {\n");
+}
+
+#[test]
+fn show_reports_ambiguous_relaxed_parent_segments() {
+    let stdout = run_lupa_stdin(
+        &["show", "rust", "Storage.open"],
+        r"
+pub struct CoreStorage;
+pub struct FileStorage;
+
+impl CoreStorage {
+    pub fn open() -> usize {
+        1
+    }
+}
+
+impl FileStorage {
+    pub fn open() -> usize {
+        2
+    }
+}
+",
+    );
+
+    for line in [
+        "# amb Storage.open\n",
+        "# CoreStorage.open@L6-L8 pub fn open() -> usize\n",
+        "# FileStorage.open@L12-L14 pub fn open() -> usize\n",
+    ] {
+        assert_stdout_contains(&stdout, line);
+    }
+
+    assert_stdout_lacks(&stdout, "    1\n");
+    assert_stdout_lacks(&stdout, "    2\n");
+}
+
+#[test]
+fn exact_show_key_wins_before_relaxed_parent_segments() {
+    let stdout = run_lupa_stdin(
+        &["show", "rust", "Storage.open"],
+        r"
+pub struct Storage;
+pub struct CoreStorage;
+
+impl Storage {
+    pub fn open() -> usize {
+        1
+    }
+}
+
+impl CoreStorage {
+    pub fn open() -> usize {
+        2
+    }
+}
+",
+    );
+
+    assert_stdout_contains(&stdout, "# Storage.open@");
+    assert_stdout_contains(&stdout, "    1\n");
+    assert_stdout_lacks(&stdout, "# CoreStorage.open@");
+    assert_stdout_lacks(&stdout, "    2\n");
+}
+
+#[test]
+fn relaxed_show_key_requires_exact_leaf_segment() {
+    let stdout = run_lupa_stdin(
+        &["show", "rust", "Storage.open"],
+        r"
+pub struct CoreStorage;
+
+impl CoreStorage {
+    pub fn open_stats(&self) -> usize {
+        1
+    }
+}
+",
+    );
+
+    assert_stdout_contains(&stdout, "# no Storage.open\n");
+    assert_stdout_contains(&stdout, "# candidates\n");
+    assert_stdout_contains(&stdout, "# CoreStorage.open_stats@");
+    assert_stdout_lacks(&stdout, "    1\n");
+}
+
+#[test]
 fn markdown_duplicate_headings_get_deterministic_keys() {
     let stdout = run_lupa(&["map", MARKDOWN_FIXTURE]);
     let repeated_stdout = run_lupa(&["map", MARKDOWN_FIXTURE]);

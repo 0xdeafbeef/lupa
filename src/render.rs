@@ -120,11 +120,44 @@ fn matching_symbols<'a>(symbols: &'a [&Symbol], key: &str) -> Vec<&'a Symbol> {
     if !exact.is_empty() {
         return exact;
     }
+    let suffix = format!(".{key}");
+    let suffix = symbols
+        .iter()
+        .copied()
+        .filter(|symbol| symbol.key.ends_with(&suffix))
+        .collect::<Vec<_>>();
+    if !suffix.is_empty() {
+        return suffix;
+    }
     symbols
         .iter()
         .copied()
-        .filter(|symbol| symbol.key.ends_with(&format!(".{key}")))
+        .filter(|symbol| relaxed_key_match(&symbol.key, key))
         .collect()
+}
+
+fn relaxed_key_match(candidate: &str, query: &str) -> bool {
+    let mut candidate = candidate.rsplit('.');
+    let mut query = query.rsplit('.');
+    let Some(query_leaf) = query.next() else {
+        return false;
+    };
+    let Some(candidate_leaf) = candidate.next() else {
+        return false;
+    };
+    if candidate_leaf != query_leaf {
+        return false;
+    }
+
+    for query_part in query {
+        let Some(candidate_part) = candidate.next() else {
+            return false;
+        };
+        if candidate_part != query_part && !candidate_part.ends_with(query_part) {
+            return false;
+        }
+    }
+    true
 }
 
 fn render_no_match(
