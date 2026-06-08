@@ -59,6 +59,33 @@ pub fn parse_toml(path: &Path, source: String) -> FileMap {
     file_map(path, Language::Toml, source, symbols, parse_errors)
 }
 
+pub fn parse_yaml(path: &Path, source: String) -> FileMap {
+    let mut parser = Parser::new();
+    let language = tree_sitter_yaml::LANGUAGE.into();
+    let mut parse_errors = Vec::new();
+
+    if let Err(err) = parser.set_language(&language) {
+        parse_errors.push(ParseError {
+            line: 1,
+            message: format!("failed to load YAML grammar: {err}"),
+        });
+        return file_map(path, Language::Yaml, source, Vec::new(), parse_errors);
+    }
+
+    let Some(tree) = parser.parse(&source, None) else {
+        parse_errors.push(ParseError {
+            line: 1,
+            message: "tree-sitter returned no parse tree".to_owned(),
+        });
+        return file_map(path, Language::Yaml, source, Vec::new(), parse_errors);
+    };
+
+    let root = tree.root_node();
+    collect_parse_errors(root, &mut parse_errors);
+    let symbols = Collector::new(&source).collect_yaml(root);
+    file_map(path, Language::Yaml, source, symbols, parse_errors)
+}
+
 fn file_map(
     path: &Path,
     language: Language,
@@ -261,8 +288,81 @@ impl<'a> Collector<'a> {
         }
     }
 
+    fn collect_yaml(&mut self, root: Node<'_>) -> Vec<Symbol> {
+        let mut symbols = Vec::new();
+        self.collect_yaml_value(root, None, &mut symbols);
+        symbols
+    }
+
+    fn collect_yaml_value(
+        &mut self,
+        node: Node<'_>,
+        parent_key: Option<&str>,
+        symbols: &mut Vec<Symbol>,
+    ) {
+        match node.kind() {
+            "block_mapping_pair" | "flow_pair" => self.push_yaml_pair(node, parent_key, symbols),
+            _ => {
+                let mut cursor = node.walk();
+                for child in node.named_children(&mut cursor) {
+                    self.collect_yaml_value(child, parent_key, symbols);
+                }
+            }
+        }
+    }
+
+    fn push_yaml_pair(
+        &mut self,
+        node: Node<'_>,
+        parent_key: Option<&str>,
+        symbols: &mut Vec<Symbol>,
+    ) {
+        let Some(key_node) = node.child_by_field_name("key") else {
+            return;
+        };
+        let Some(name) = self.yaml_key(key_node) else {
+            return;
+        };
+
+        let key = parent_key.map_or_else(|| name.clone(), |parent| format!("{parent}.{name}"));
+        let key = self.unique_key(key);
+        let mut symbol = Symbol::new(
+            key.clone(),
+            SymbolKind::Field,
+            name,
+            self.signature(node),
+            line_span(node),
+        );
+        symbol.parent_key = parent_key.map(str::to_owned);
+
+        if let Some(value) = node.child_by_field_name("value") {
+            self.collect_yaml_value(value, Some(key.as_str()), &mut symbol.children);
+        }
+
+        symbols.push(symbol);
+    }
+
     fn node_text(&self, node: Node<'_>) -> Option<&'a str> {
         node.utf8_text(self.source.as_bytes()).ok()
+    }
+
+    fn yaml_key(&self, node: Node<'_>) -> Option<String> {
+        let mut cursor = node.walk();
+        for child in node.named_children(&mut cursor) {
+            match child.kind() {
+                "string_scalar" | "integer_scalar" | "boolean_scalar" | "float_scalar" => {
+                    return self.node_text(child).map(strip_quotes);
+                }
+                "plain_scalar" | "double_quote_scalar" | "single_quote_scalar" => {
+                    if let Some(key) = self.yaml_key(child) {
+                        return Some(key);
+                    }
+                    return self.node_text(child).map(strip_quotes);
+                }
+                _ => {}
+            }
+        }
+        None
     }
 
     fn toml_key(&self, node: Node<'_>) -> Option<String> {

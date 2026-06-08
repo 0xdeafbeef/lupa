@@ -1,0 +1,8 @@
+service:
+  name: api
+  limits:
+    timeout_ms: 5000
+plugins:
+  - name: nix
+    enabled: true
+metadata: { owner: ops, team: tools }

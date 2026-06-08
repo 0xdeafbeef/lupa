@@ -341,7 +341,9 @@ v1 should support the languages that showed up in agent guidance and normal repo
 - Go
 - C / C++ / headers
 - JSON
+- Nix
 - TOML
+- YAML
 - Markdown
 
 Later:

@@ -18,16 +18,7 @@ impl LanguageVariant {
             Language::JavaScript | Language::Jsx => Self::JavaScript,
             Language::Tsx => Self::Tsx,
             Language::TypeScript => Self::TypeScript,
-            Language::C
-            | Language::Cpp
-            | Language::Go
-            | Language::Json
-            | Language::Markdown
-            | Language::Python
-            | Language::Rust
-            | Language::Toml => {
-                unreachable!("javascript adapter only handles JavaScript and TypeScript languages")
-            }
+            language => unreachable!("{language} passed to JavaScript and TypeScript parser"),
         }
     }
 

@@ -10,11 +10,13 @@ pub enum Language {
     Json,
     Jsx,
     Markdown,
+    Nix,
     Python,
     Rust,
     Tsx,
     Toml,
     TypeScript,
+    Yaml,
 }
 
 impl Language {
@@ -30,11 +32,13 @@ impl Language {
             "json" => Some(Self::Json),
             "jsx" => Some(Self::Jsx),
             "md" | "markdown" | "mdx" => Some(Self::Markdown),
+            "nix" => Some(Self::Nix),
             "py" | "pyi" => Some(Self::Python),
             "rs" => Some(Self::Rust),
             "tsx" => Some(Self::Tsx),
             "toml" => Some(Self::Toml),
             "ts" | "mts" | "cts" => Some(Self::TypeScript),
+            "yaml" | "yml" => Some(Self::Yaml),
             _ => None,
         }
     }
@@ -48,11 +52,13 @@ impl Language {
             "json" => Some(Self::Json),
             "jsx" => Some(Self::Jsx),
             "markdown" => Some(Self::Markdown),
+            "nix" => Some(Self::Nix),
             "python" => Some(Self::Python),
             "rust" => Some(Self::Rust),
             "tsx" => Some(Self::Tsx),
             "toml" => Some(Self::Toml),
             "typescript" => Some(Self::TypeScript),
+            "yaml" => Some(Self::Yaml),
             _ => None,
         }
     }
@@ -68,11 +74,13 @@ impl fmt::Display for Language {
             Self::Json => f.write_str("json"),
             Self::Jsx => f.write_str("jsx"),
             Self::Markdown => f.write_str("markdown"),
+            Self::Nix => f.write_str("nix"),
             Self::Python => f.write_str("python"),
             Self::Rust => f.write_str("rust"),
             Self::Tsx => f.write_str("tsx"),
             Self::Toml => f.write_str("toml"),
             Self::TypeScript => f.write_str("typescript"),
+            Self::Yaml => f.write_str("yaml"),
         }
     }
 }

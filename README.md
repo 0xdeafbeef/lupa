@@ -24,10 +24,10 @@ Add this to your agent instructions:
 
 For supported files (`.rs`, `.py`, `.pyi`, `.ts`, `.mts`, `.cts`, `.tsx`,
 `.js`, `.cjs`, `.mjs`, `.jsx`, `.go`, `.c`, `.cc`, `.cpp`, `.cxx`, `.h`,
-`.hh`, `.hpp`, `.hxx`, `.inl`, `.ipp`, `.json`, `.toml`, `.md`, `.markdown`,
-`.mdx`), read structure with `lupa` before opening full contents. For
-unsupported languages, short docs, or known line ranges, use `rg` plus targeted
-source slices directly.
+`.hh`, `.hpp`, `.hxx`, `.inl`, `.ipp`, `.json`, `.toml`, `.nix`, `.yaml`,
+`.yml`, `.md`, `.markdown`, `.mdx`), read structure with `lupa` before opening
+full contents. For unsupported languages, short docs, or known line ranges, use
+`rg` plus targeted source slices directly.
 Pull method bodies only once you know which ones you need.
 
 Stop at the step that answers the question:

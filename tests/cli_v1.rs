@@ -14,6 +14,7 @@ const JS_FIXTURE: &str = "tests/fixtures/source_shapes.js";
 const JSON_FIXTURE: &str = "tests/fixtures/source_shapes.json";
 const JSX_FIXTURE: &str = "tests/fixtures/source_shapes.jsx";
 const MARKDOWN_FIXTURE: &str = "tests/fixtures/duplicate_headings.md";
+const NIX_FIXTURE: &str = "tests/fixtures/source_shapes.nix";
 const NO_BLOCK_PLS_FIXTURE: &str = "tests/fixtures/no_block_pls_shapes.rs";
 const PARSE_ERROR_FIXTURE: &str = "tests/fixtures/parse_error.rs";
 const PYTHON_FIXTURE: &str = "tests/fixtures/source_shapes.py";
@@ -23,6 +24,7 @@ const TOML_FIXTURE: &str = "tests/fixtures/source_shapes.toml";
 const TS_FIXTURE: &str = "tests/fixtures/source_shapes.ts";
 const TSX_FIXTURE: &str = "tests/fixtures/source_shapes.tsx";
 const UNSUPPORTED_FIXTURE: &str = "tests/fixtures/not_source.txt";
+const YAML_FIXTURE: &str = "tests/fixtures/source_shapes.yaml";
 
 #[test]
 fn map_prints_exact_keys_that_show_accepts() {
@@ -295,6 +297,15 @@ fn stdin_map_dispatches_non_rust_language_tokens() {
     assert_stdout_contains(&stdout, "# - [toml] 3L 38B 3S\n");
     assert_stdout_contains(&stdout, " title title = \"Lupa\"\n");
     assert_stdout_contains(&stdout, " service [service]\n");
+
+    let stdout = run_lupa_stdin(&["map", "nix"], "{ service.enable = true; }\n");
+    assert_stdout_contains(&stdout, "# - [nix] 1L 27B 1S\n");
+    assert_stdout_contains(&stdout, " service.enable service.enable = true;\n");
+
+    let stdout = run_lupa_stdin(&["map", "yaml"], "service:\n  name: api\n");
+    assert_stdout_contains(&stdout, "# - [yaml] 2L 21B 2S\n");
+    assert_stdout_contains(&stdout, " service service:\n");
+    assert_stdout_contains(&stdout, " service.name name: api\n");
 }
 
 #[test]
@@ -522,10 +533,13 @@ fn digest_includes_polyglot_source_extensions() {
         "tests/fixtures/digest_tree/visible.js",
         "tests/fixtures/digest_tree/visible.json",
         "tests/fixtures/digest_tree/visible.jsx",
+        "tests/fixtures/digest_tree/visible.nix",
         "tests/fixtures/digest_tree/visible.py",
         "tests/fixtures/digest_tree/visible.ts",
         "tests/fixtures/digest_tree/visible.toml",
         "tests/fixtures/digest_tree/visible.tsx",
+        "tests/fixtures/digest_tree/visible.yaml",
+        "tests/fixtures/digest_tree/visible.yml",
     ] {
         assert_stdout_contains(&stdout, path);
     }
@@ -664,6 +678,15 @@ fn polyglot_map_prints_expected_keys() {
         ),
         (JSX_FIXTURE, &[" Card ", " Shell "][..]),
         (
+            NIX_FIXTURE,
+            &[
+                " local ",
+                " services.demo.enable ",
+                " packages ",
+                " nested.value ",
+            ][..],
+        ),
+        (
             TOML_FIXTURE,
             &[
                 " title ",
@@ -673,6 +696,16 @@ fn polyglot_map_prints_expected_keys() {
                 " service.limits.retries ",
                 " plugins.enabled ",
                 " metadata.owner.name ",
+            ][..],
+        ),
+        (
+            YAML_FIXTURE,
+            &[
+                " service ",
+                " service.name ",
+                " service.limits.timeout_ms ",
+                " plugins.name ",
+                " metadata.owner ",
             ][..],
         ),
         (
@@ -805,6 +838,26 @@ fn polyglot_show_prints_selected_symbols() {
             ][..],
         ),
         (
+            NIX_FIXTURE,
+            &["services.demo.enable", "nested.value"][..],
+            &[
+                "# services.demo.enable@L5\n",
+                "services.demo.enable = true;\n",
+                "# nested.value@L7\n",
+                "nested = { value = local; };\n",
+            ][..],
+        ),
+        (
+            YAML_FIXTURE,
+            &["service.limits", "metadata.owner"][..],
+            &[
+                "# service.limits@L3-L4\n",
+                "limits:\n",
+                "# metadata.owner@L8\n",
+                "metadata: { owner: ops, team: tools }\n",
+            ][..],
+        ),
+        (
             TS_FIXTURE,
             &["UserService.load", "formatUser"][..],
             &[
@@ -918,6 +971,25 @@ fn polyglot_keys_print_expected_ranges() {
                 "service.limits L7-L8\n",
                 "plugins.enabled L12\n",
                 "metadata.owner.name L15\n",
+            ][..],
+        ),
+        (
+            NIX_FIXTURE,
+            &[
+                "local L3\n",
+                "services.demo.enable L5\n",
+                "packages L6\n",
+                "nested.value L7\n",
+            ][..],
+        ),
+        (
+            YAML_FIXTURE,
+            &[
+                "service L1-L4\n",
+                "service.name L2\n",
+                "service.limits.timeout_ms L4\n",
+                "plugins.name L6\n",
+                "metadata.owner L8\n",
             ][..],
         ),
         (

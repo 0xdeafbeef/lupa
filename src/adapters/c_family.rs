@@ -16,16 +16,7 @@ impl LanguageVariant {
         match language {
             Language::C => Self::C,
             Language::Cpp => Self::Cpp,
-            Language::Go
-            | Language::JavaScript
-            | Language::Json
-            | Language::Jsx
-            | Language::Markdown
-            | Language::Python
-            | Language::Rust
-            | Language::Toml
-            | Language::Tsx
-            | Language::TypeScript => unreachable!("non-C language passed to C-family parser"),
+            language => unreachable!("{language} passed to C-family parser"),
         }
     }
 
