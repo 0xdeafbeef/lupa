@@ -18,10 +18,12 @@ impl LanguageVariant {
             Language::Cpp => Self::Cpp,
             Language::Go
             | Language::JavaScript
+            | Language::Json
             | Language::Jsx
             | Language::Markdown
             | Language::Python
             | Language::Rust
+            | Language::Toml
             | Language::Tsx
             | Language::TypeScript => unreachable!("non-C language passed to C-family parser"),
         }

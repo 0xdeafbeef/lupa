@@ -1,4 +1,5 @@
 pub mod c_family;
+pub mod config;
 pub mod go;
 pub mod javascript;
 pub mod markdown;
@@ -25,9 +26,11 @@ pub fn parse_source(path: &Path, language: Language, source: String) -> Result<F
         Language::JavaScript | Language::Jsx | Language::Tsx | Language::TypeScript => {
             Ok(javascript::parse(path, language, source))
         }
+        Language::Json => Ok(config::parse_json(path, source)),
         Language::Markdown => Ok(markdown::parse(path, source)),
         Language::Python => Ok(python::parse(path, source)),
         Language::Rust => Ok(rust::parse(path, source)),
+        Language::Toml => Ok(config::parse_toml(path, source)),
     }
 }
 

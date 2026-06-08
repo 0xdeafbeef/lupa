@@ -7,11 +7,13 @@ pub enum Language {
     Cpp,
     Go,
     JavaScript,
+    Json,
     Jsx,
     Markdown,
     Python,
     Rust,
     Tsx,
+    Toml,
     TypeScript,
 }
 
@@ -25,11 +27,13 @@ impl Language {
             }
             "go" => Some(Self::Go),
             "js" | "cjs" | "mjs" => Some(Self::JavaScript),
+            "json" => Some(Self::Json),
             "jsx" => Some(Self::Jsx),
             "md" | "markdown" | "mdx" => Some(Self::Markdown),
             "py" | "pyi" => Some(Self::Python),
             "rs" => Some(Self::Rust),
             "tsx" => Some(Self::Tsx),
+            "toml" => Some(Self::Toml),
             "ts" | "mts" | "cts" => Some(Self::TypeScript),
             _ => None,
         }
@@ -41,11 +45,13 @@ impl Language {
             "cpp" => Some(Self::Cpp),
             "go" => Some(Self::Go),
             "javascript" => Some(Self::JavaScript),
+            "json" => Some(Self::Json),
             "jsx" => Some(Self::Jsx),
             "markdown" => Some(Self::Markdown),
             "python" => Some(Self::Python),
             "rust" => Some(Self::Rust),
             "tsx" => Some(Self::Tsx),
+            "toml" => Some(Self::Toml),
             "typescript" => Some(Self::TypeScript),
             _ => None,
         }
@@ -59,11 +65,13 @@ impl fmt::Display for Language {
             Self::Cpp => f.write_str("cpp"),
             Self::Go => f.write_str("go"),
             Self::JavaScript => f.write_str("javascript"),
+            Self::Json => f.write_str("json"),
             Self::Jsx => f.write_str("jsx"),
             Self::Markdown => f.write_str("markdown"),
             Self::Python => f.write_str("python"),
             Self::Rust => f.write_str("rust"),
             Self::Tsx => f.write_str("tsx"),
+            Self::Toml => f.write_str("toml"),
             Self::TypeScript => f.write_str("typescript"),
         }
     }

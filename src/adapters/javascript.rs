@@ -21,9 +21,11 @@ impl LanguageVariant {
             Language::C
             | Language::Cpp
             | Language::Go
+            | Language::Json
             | Language::Markdown
             | Language::Python
-            | Language::Rust => {
+            | Language::Rust
+            | Language::Toml => {
                 unreachable!("javascript adapter only handles JavaScript and TypeScript languages")
             }
         }

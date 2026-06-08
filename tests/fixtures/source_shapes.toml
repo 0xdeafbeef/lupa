@@ -1,0 +1,15 @@
+title = "Lupa"
+
+[service]
+name = "api"
+timeout_ms = 5000
+
+[service.limits]
+retries = 3
+
+[[plugins]]
+name = "json"
+enabled = true
+
+[metadata]
+owner = { name = "ops", team = "tools" }

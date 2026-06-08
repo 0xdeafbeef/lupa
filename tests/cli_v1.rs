@@ -11,6 +11,7 @@ const HH_FIXTURE: &str = "tests/fixtures/source_shapes.hh";
 const HPP_FIXTURE: &str = "tests/fixtures/source_shapes.hpp";
 const HXX_FIXTURE: &str = "tests/fixtures/source_shapes.hxx";
 const JS_FIXTURE: &str = "tests/fixtures/source_shapes.js";
+const JSON_FIXTURE: &str = "tests/fixtures/source_shapes.json";
 const JSX_FIXTURE: &str = "tests/fixtures/source_shapes.jsx";
 const MARKDOWN_FIXTURE: &str = "tests/fixtures/duplicate_headings.md";
 const NO_BLOCK_PLS_FIXTURE: &str = "tests/fixtures/no_block_pls_shapes.rs";
@@ -18,6 +19,7 @@ const PARSE_ERROR_FIXTURE: &str = "tests/fixtures/parse_error.rs";
 const PYTHON_FIXTURE: &str = "tests/fixtures/source_shapes.py";
 const RUST_ATTRIBUTES_FIXTURE: &str = "tests/fixtures/rust_attributes.rs";
 const RUST_FIXTURE: &str = "tests/fixtures/rust_symbols.rs";
+const TOML_FIXTURE: &str = "tests/fixtures/source_shapes.toml";
 const TS_FIXTURE: &str = "tests/fixtures/source_shapes.ts";
 const TSX_FIXTURE: &str = "tests/fixtures/source_shapes.tsx";
 const UNSUPPORTED_FIXTURE: &str = "tests/fixtures/not_source.txt";
@@ -280,6 +282,19 @@ fn stdin_map_dispatches_non_rust_language_tokens() {
     assert_stdout_contains(&stdout, "# - [go] 5L 81B 2S\n");
     assert_stdout_contains(&stdout, " Server type Server struct\n");
     assert_stdout_contains(&stdout, " NewServer func NewServer() Server\n");
+
+    let stdout = run_lupa_stdin(&["map", "json"], r#"{"service": {"name": "api"}}"#);
+    assert_stdout_contains(&stdout, "# - [json] 1L 28B 2S\n");
+    assert_stdout_contains(&stdout, " service ");
+    assert_stdout_contains(&stdout, " service.name ");
+
+    let stdout = run_lupa_stdin(
+        &["map", "toml"],
+        "title = \"Lupa\"\n[service]\nname = \"api\"\n",
+    );
+    assert_stdout_contains(&stdout, "# - [toml] 3L 38B 3S\n");
+    assert_stdout_contains(&stdout, " title title = \"Lupa\"\n");
+    assert_stdout_contains(&stdout, " service [service]\n");
 }
 
 #[test]
@@ -505,9 +520,11 @@ fn digest_includes_polyglot_source_extensions() {
         "tests/fixtures/digest_tree/visible.hpp",
         "tests/fixtures/digest_tree/visible.hxx",
         "tests/fixtures/digest_tree/visible.js",
+        "tests/fixtures/digest_tree/visible.json",
         "tests/fixtures/digest_tree/visible.jsx",
         "tests/fixtures/digest_tree/visible.py",
         "tests/fixtures/digest_tree/visible.ts",
+        "tests/fixtures/digest_tree/visible.toml",
         "tests/fixtures/digest_tree/visible.tsx",
     ] {
         assert_stdout_contains(&stdout, path);
@@ -635,7 +652,29 @@ fn polyglot_map_prints_expected_keys() {
                 " makeWidget ",
             ][..],
         ),
+        (
+            JSON_FIXTURE,
+            &[
+                " service ",
+                " service.name ",
+                " service.limits ",
+                " service.limits.timeout_ms ",
+                " scripts.build ",
+            ][..],
+        ),
         (JSX_FIXTURE, &[" Card ", " Shell "][..]),
+        (
+            TOML_FIXTURE,
+            &[
+                " title ",
+                " service ",
+                " service.name ",
+                " service.limits ",
+                " service.limits.retries ",
+                " plugins.enabled ",
+                " metadata.owner.name ",
+            ][..],
+        ),
         (
             TS_FIXTURE,
             &[
@@ -736,6 +775,16 @@ fn polyglot_show_prints_selected_symbols() {
             ][..],
         ),
         (
+            JSON_FIXTURE,
+            &["service.limits", "scripts.build"][..],
+            &[
+                "# service.limits@L4-L7\n",
+                "\"limits\": {\n",
+                "# scripts.build@L10\n",
+                "\"build\": \"cargo build\",\n",
+            ][..],
+        ),
+        (
             JSX_FIXTURE,
             &["Card", "Shell"][..],
             &[
@@ -743,6 +792,16 @@ fn polyglot_show_prints_selected_symbols() {
                 "export function Card({ title }) {\n",
                 "# Shell@L5-L7\n",
                 "export const Shell = () => {\n",
+            ][..],
+        ),
+        (
+            TOML_FIXTURE,
+            &["service", "metadata.owner.name"][..],
+            &[
+                "# service@L3-L5\n",
+                "[service]\n",
+                "# metadata.owner.name@L15\n",
+                "owner = { name = \"ops\", team = \"tools\" }\n",
             ][..],
         ),
         (
@@ -783,6 +842,18 @@ fn polyglot_show_prints_selected_symbols() {
             assert_stdout_contains(&stdout, line);
         }
     }
+}
+
+#[test]
+fn toml_table_show_does_not_include_next_table() {
+    let stdout = run_lupa(&["show", TOML_FIXTURE, "service", "plugins"]);
+
+    assert_stdout_contains(&stdout, "# service@L3-L5\n");
+    assert_stdout_contains(&stdout, "timeout_ms = 5000\n");
+    assert_stdout_lacks(&stdout, "[service.limits]\n");
+    assert_stdout_contains(&stdout, "# plugins@L10-L12\n");
+    assert_stdout_contains(&stdout, "enabled = true\n");
+    assert_stdout_lacks(&stdout, "[metadata]\n");
 }
 
 #[test]
@@ -829,7 +900,26 @@ fn polyglot_keys_print_expected_ranges() {
                 "makeWidget L11-L13\n",
             ][..],
         ),
+        (
+            JSON_FIXTURE,
+            &[
+                "service L2-L8\n",
+                "service.name L3\n",
+                "service.limits.timeout_ms L5\n",
+                "scripts.build L10\n",
+            ][..],
+        ),
         (JSX_FIXTURE, &["Card L1-L3\n", "Shell L5-L7\n"][..]),
+        (
+            TOML_FIXTURE,
+            &[
+                "title L1\n",
+                "service L3-L5\n",
+                "service.limits L7-L8\n",
+                "plugins.enabled L12\n",
+                "metadata.owner.name L15\n",
+            ][..],
+        ),
         (
             TS_FIXTURE,
             &[

@@ -340,6 +340,8 @@ v1 should support the languages that showed up in agent guidance and normal repo
 - JavaScript / JSX
 - Go
 - C / C++ / headers
+- JSON
+- TOML
 - Markdown
 
 Later:
