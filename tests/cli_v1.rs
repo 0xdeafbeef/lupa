@@ -1,4 +1,6 @@
 use assert_cmd::Command;
+use lupa::Language;
+use std::path::Path;
 
 const DIGEST_FIXTURE: &str = "tests/fixtures/digest_tree";
 const C_FIXTURE: &str = "tests/fixtures/source_shapes.c";
@@ -12,6 +14,7 @@ const HPP_FIXTURE: &str = "tests/fixtures/source_shapes.hpp";
 const HXX_FIXTURE: &str = "tests/fixtures/source_shapes.hxx";
 const JS_FIXTURE: &str = "tests/fixtures/source_shapes.js";
 const JSON_FIXTURE: &str = "tests/fixtures/source_shapes.json";
+const JUST_FIXTURE: &str = "tests/fixtures/justfile";
 const JSX_FIXTURE: &str = "tests/fixtures/source_shapes.jsx";
 const MARKDOWN_FIXTURE: &str = "tests/fixtures/duplicate_headings.md";
 const NIX_FIXTURE: &str = "tests/fixtures/source_shapes.nix";
@@ -23,6 +26,7 @@ const RUST_FIXTURE: &str = "tests/fixtures/rust_symbols.rs";
 const TOML_FIXTURE: &str = "tests/fixtures/source_shapes.toml";
 const TS_FIXTURE: &str = "tests/fixtures/source_shapes.ts";
 const TSX_FIXTURE: &str = "tests/fixtures/source_shapes.tsx";
+const TYPST_FIXTURE: &str = "tests/fixtures/source_shapes.typ";
 const UNSUPPORTED_FIXTURE: &str = "tests/fixtures/not_source.txt";
 const YAML_FIXTURE: &str = "tests/fixtures/source_shapes.yaml";
 
@@ -250,6 +254,13 @@ fn stdin_map_accepts_canonical_language_token() {
 }
 
 #[test]
+fn language_detects_justfile_names_and_extension() {
+    for path in ["justfile", "Justfile", "JUSTFILE", "tasks.just"] {
+        assert_eq!(Language::from_path(Path::new(path)), Some(Language::Just));
+    }
+}
+
+#[test]
 fn stdin_show_accepts_canonical_language_token() {
     let stdout = run_lupa_stdin(
         &["show", "rust", "Alpha.new"],
@@ -290,6 +301,10 @@ fn stdin_map_dispatches_non_rust_language_tokens() {
     assert_stdout_contains(&stdout, " service ");
     assert_stdout_contains(&stdout, " service.name ");
 
+    let stdout = run_lupa_stdin(&["map", "just"], "build:\n    cargo build\n");
+    assert_stdout_contains(&stdout, "# - [just] 2L 23B 1S\n");
+    assert_stdout_contains(&stdout, " build build:\n");
+
     let stdout = run_lupa_stdin(
         &["map", "toml"],
         "title = \"Lupa\"\n[service]\nname = \"api\"\n",
@@ -306,6 +321,11 @@ fn stdin_map_dispatches_non_rust_language_tokens() {
     assert_stdout_contains(&stdout, "# - [yaml] 2L 21B 2S\n");
     assert_stdout_contains(&stdout, " service service:\n");
     assert_stdout_contains(&stdout, " service.name name: api\n");
+
+    let stdout = run_lupa_stdin(&["map", "typst"], "#let title = \"Lupa\"\n\n= Intro\n");
+    assert_stdout_contains(&stdout, "# - [typst] 3L 29B 2S\n");
+    assert_stdout_contains(&stdout, " title #let title = \"Lupa\"\n");
+    assert_stdout_contains(&stdout, " Intro = Intro\n");
 }
 
 #[test]
@@ -532,12 +552,15 @@ fn digest_includes_polyglot_source_extensions() {
         "tests/fixtures/digest_tree/visible.hxx",
         "tests/fixtures/digest_tree/visible.js",
         "tests/fixtures/digest_tree/visible.json",
+        "tests/fixtures/digest_tree/visible.just",
         "tests/fixtures/digest_tree/visible.jsx",
+        "tests/fixtures/digest_tree/justfile",
         "tests/fixtures/digest_tree/visible.nix",
         "tests/fixtures/digest_tree/visible.py",
         "tests/fixtures/digest_tree/visible.ts",
         "tests/fixtures/digest_tree/visible.toml",
         "tests/fixtures/digest_tree/visible.tsx",
+        "tests/fixtures/digest_tree/visible.typ",
         "tests/fixtures/digest_tree/visible.yaml",
         "tests/fixtures/digest_tree/visible.yml",
     ] {
@@ -676,6 +699,17 @@ fn polyglot_map_prints_expected_keys() {
                 " scripts.build ",
             ][..],
         ),
+        (
+            JUST_FIXTURE,
+            &[
+                " profile ",
+                " PROFILE ",
+                " t ",
+                " build ",
+                " prepare ",
+                " test ",
+            ][..],
+        ),
         (JSX_FIXTURE, &[" Card ", " Shell "][..]),
         (
             NIX_FIXTURE,
@@ -748,11 +782,35 @@ fn polyglot_map_prints_expected_keys() {
                 " helper ",
             ][..],
         ),
+        (
+            TYPST_FIXTURE,
+            &[
+                " title ",
+                " accent-color ",
+                " string_source ",
+                " Resume ",
+                " Resume.Summary ",
+                " Resume.Experience ",
+            ][..],
+        ),
     ] {
         let stdout = run_lupa(&["map", fixture]);
         for key in keys {
             assert_stdout_contains(&stdout, key);
         }
+    }
+
+    let stdout = run_lupa(&["keys", TYPST_FIXTURE]);
+    for key in [
+        " Raw Fake ",
+        " raw_fake ",
+        " Comment Fake ",
+        " comment_fake ",
+        " local_fake ",
+        " String Fake ",
+        " string_fake ",
+    ] {
+        assert_stdout_lacks(&stdout, key);
     }
 }
 
@@ -815,6 +873,16 @@ fn polyglot_show_prints_selected_symbols() {
                 "\"limits\": {\n",
                 "# scripts.build@L10\n",
                 "\"build\": \"cargo build\",\n",
+            ][..],
+        ),
+        (
+            JUST_FIXTURE,
+            &["build", "PROFILE"][..],
+            &[
+                "# build@L7-L9\n",
+                "build target=\"debug\": prepare\n",
+                "# PROFILE@L4\n",
+                "export PROFILE := \"release\"\n",
             ][..],
         ),
         (
@@ -885,6 +953,16 @@ fn polyglot_show_prints_selected_symbols() {
                 "func (s *Server) Start(ctx context.Context) error {\n",
                 "# NewServer@L22-L24\n",
                 "func NewServer(name string, handler Handler) *Server {\n",
+            ][..],
+        ),
+        (
+            TYPST_FIXTURE,
+            &["Resume.Summary", "accent-color"][..],
+            &[
+                "# Resume.Summary@L20-L22\n",
+                "== Summary\n",
+                "# accent-color@L2\n",
+                "#let accent-color = rgb(\"#4a90e2\")\n",
             ][..],
         ),
     ] {
@@ -962,6 +1040,17 @@ fn polyglot_keys_print_expected_ranges() {
                 "scripts.build L10\n",
             ][..],
         ),
+        (
+            JUST_FIXTURE,
+            &[
+                "profile L3\n",
+                "PROFILE L4\n",
+                "t L5\n",
+                "build L7-L9\n",
+                "prepare L10-L12\n",
+                "test L13-L14\n",
+            ][..],
+        ),
         (JSX_FIXTURE, &["Card L1-L3\n", "Shell L5-L7\n"][..]),
         (
             TOML_FIXTURE,
@@ -1013,6 +1102,16 @@ fn polyglot_keys_print_expected_ranges() {
                 "Server.Start L26-L28\n",
                 "Handler.Handle L12\n",
                 "NewServer L22-L24\n",
+            ][..],
+        ),
+        (
+            TYPST_FIXTURE,
+            &[
+                "title L1\n",
+                "accent-color L2\n",
+                "Resume L5-L24\n",
+                "Resume.Summary L20-L22\n",
+                "Resume.Experience L23-L24\n",
             ][..],
         ),
     ] {

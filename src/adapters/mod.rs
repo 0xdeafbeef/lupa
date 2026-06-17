@@ -2,10 +2,12 @@ pub mod c_family;
 pub mod config;
 pub mod go;
 pub mod javascript;
+pub mod just;
 pub mod markdown;
 pub mod nix;
 pub mod python;
 pub mod rust;
+pub mod typst;
 
 use std::path::Path;
 
@@ -19,11 +21,13 @@ pub fn parse_source(path: &Path, language: Language, source: String) -> Result<F
             Ok(javascript::parse(path, language, source))
         }
         Language::Json => Ok(config::parse_json(path, source)),
+        Language::Just => Ok(just::parse(path, source)),
         Language::Markdown => Ok(markdown::parse(path, source)),
         Language::Nix => Ok(nix::parse(path, source)),
         Language::Python => Ok(python::parse(path, source)),
         Language::Rust => Ok(rust::parse(path, source)),
         Language::Toml => Ok(config::parse_toml(path, source)),
+        Language::Typst => Ok(typst::parse(path, source)),
         Language::Yaml => Ok(config::parse_yaml(path, source)),
     }
 }

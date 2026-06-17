@@ -1,5 +1,5 @@
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Language {
@@ -8,6 +8,7 @@ pub enum Language {
     Go,
     JavaScript,
     Json,
+    Just,
     Jsx,
     Markdown,
     Nix,
@@ -15,12 +16,19 @@ pub enum Language {
     Rust,
     Tsx,
     Toml,
+    Typst,
     TypeScript,
     Yaml,
 }
 
 impl Language {
-    pub fn from_path(path: &std::path::Path) -> Option<Self> {
+    pub fn from_path(path: &Path) -> Option<Self> {
+        if let Some(file_name) = path.file_name().and_then(|file_name| file_name.to_str()) {
+            if matches!(file_name, "justfile" | "Justfile" | "JUSTFILE") {
+                return Some(Self::Just);
+            }
+        }
+
         let ext = path.extension().and_then(|ext| ext.to_str())?;
         match ext.to_ascii_lowercase().as_str() {
             "c" => Some(Self::C),
@@ -30,6 +38,7 @@ impl Language {
             "go" => Some(Self::Go),
             "js" | "cjs" | "mjs" => Some(Self::JavaScript),
             "json" => Some(Self::Json),
+            "just" => Some(Self::Just),
             "jsx" => Some(Self::Jsx),
             "md" | "markdown" | "mdx" => Some(Self::Markdown),
             "nix" => Some(Self::Nix),
@@ -37,6 +46,7 @@ impl Language {
             "rs" => Some(Self::Rust),
             "tsx" => Some(Self::Tsx),
             "toml" => Some(Self::Toml),
+            "typ" => Some(Self::Typst),
             "ts" | "mts" | "cts" => Some(Self::TypeScript),
             "yaml" | "yml" => Some(Self::Yaml),
             _ => None,
@@ -50,6 +60,7 @@ impl Language {
             "go" => Some(Self::Go),
             "javascript" => Some(Self::JavaScript),
             "json" => Some(Self::Json),
+            "just" => Some(Self::Just),
             "jsx" => Some(Self::Jsx),
             "markdown" => Some(Self::Markdown),
             "nix" => Some(Self::Nix),
@@ -57,6 +68,7 @@ impl Language {
             "rust" => Some(Self::Rust),
             "tsx" => Some(Self::Tsx),
             "toml" => Some(Self::Toml),
+            "typst" => Some(Self::Typst),
             "typescript" => Some(Self::TypeScript),
             "yaml" => Some(Self::Yaml),
             _ => None,
@@ -72,6 +84,7 @@ impl fmt::Display for Language {
             Self::Go => f.write_str("go"),
             Self::JavaScript => f.write_str("javascript"),
             Self::Json => f.write_str("json"),
+            Self::Just => f.write_str("just"),
             Self::Jsx => f.write_str("jsx"),
             Self::Markdown => f.write_str("markdown"),
             Self::Nix => f.write_str("nix"),
@@ -79,6 +92,7 @@ impl fmt::Display for Language {
             Self::Rust => f.write_str("rust"),
             Self::Tsx => f.write_str("tsx"),
             Self::Toml => f.write_str("toml"),
+            Self::Typst => f.write_str("typst"),
             Self::TypeScript => f.write_str("typescript"),
             Self::Yaml => f.write_str("yaml"),
         }

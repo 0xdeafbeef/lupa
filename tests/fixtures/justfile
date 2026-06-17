@@ -1,0 +1,14 @@
+set dotenv-load
+
+profile := "dev"
+export PROFILE := "release"
+alias t := test
+
+build target="debug": prepare
+    cargo build --profile {{target}}
+
+prepare:
+    mkdir -p target
+
+test:
+    cargo test
