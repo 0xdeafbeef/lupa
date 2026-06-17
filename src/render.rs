@@ -70,7 +70,7 @@ pub fn render_digest(files: &[FileMap], out: &mut impl fmt::Write) -> fmt::Resul
             write!(out, " {}E", file.parse_errors.len())?;
         }
         if !file.warnings.is_empty() {
-            write!(out, " limited-fallback")?;
+            write!(out, " syntax-only")?;
         }
         for symbol in file.symbols.iter().take(DIGEST_MAX_TOP) {
             write!(out, " {}@{}", symbol.key, symbol.range)?;

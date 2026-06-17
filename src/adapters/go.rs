@@ -1,17 +1,18 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use arborium::tree_sitter::{Node, Parser};
+use tree_sitter::{Node, Parser};
 
+use crate::grammars;
 use crate::model::{FileMap, Language, LineSpan, ParseError, Symbol, SymbolKind};
 
 pub fn parse(path: &Path, source: String) -> FileMap {
     let mut parser = Parser::new();
     let mut parse_errors = Vec::new();
-    let Some(language) = arborium::get_language("go") else {
+    let Some(language) = grammars::language(Language::Go) else {
         parse_errors.push(ParseError {
             line: 1,
-            message: "failed to load Go grammar: Arborium grammar 'go' is not enabled".to_owned(),
+            message: "failed to load Go grammar".to_owned(),
         });
         return file_map(path, source, Vec::new(), parse_errors);
     };

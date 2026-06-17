@@ -1,17 +1,18 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use arborium::tree_sitter::{Node, Parser};
+use tree_sitter::{Node, Parser};
 
+use crate::grammars;
 use crate::model::{FileMap, Language, LineSpan, ParseError, Symbol, SymbolKind};
 
 pub fn parse(path: &Path, source: String) -> FileMap {
     let mut parser = Parser::new();
     let mut parse_errors = Vec::new();
-    let Some(language) = arborium::get_language("nix") else {
+    let Some(language) = grammars::language(Language::Nix) else {
         parse_errors.push(ParseError {
             line: 1,
-            message: "failed to load Nix grammar: Arborium grammar 'nix' is not enabled".to_owned(),
+            message: "failed to load Nix grammar".to_owned(),
         });
         return file_map(path, source, Vec::new(), parse_errors);
     };

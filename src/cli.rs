@@ -4,7 +4,6 @@ use std::path::{Path, PathBuf};
 
 use clap::error::ErrorKind;
 use clap::{Parser, Subcommand};
-
 use lupa::{context, parse_source, render, FileMap, Language};
 
 use crate::walk;

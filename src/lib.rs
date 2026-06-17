@@ -1,4 +1,5 @@
 mod adapters;
+mod grammars;
 
 pub mod context;
 pub mod model;

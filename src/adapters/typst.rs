@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use arborium::tree_sitter::{Node, Parser};
+use tree_sitter::{Node, Parser};
 
+use crate::grammars;
 use crate::model::{FileMap, Language, LineSpan, ParseError, Symbol, SymbolKind};
 
 #[derive(Debug)]
@@ -17,11 +18,10 @@ struct Heading {
 pub fn parse(path: &Path, source: String) -> FileMap {
     let mut parser = Parser::new();
     let mut parse_errors = Vec::new();
-    let Some(language) = arborium::get_language("typst") else {
+    let Some(language) = grammars::language(Language::Typst) else {
         parse_errors.push(ParseError {
             line: 1,
-            message: "failed to load Typst grammar: Arborium grammar 'typst' is not enabled"
-                .to_owned(),
+            message: "failed to load Typst grammar".to_owned(),
         });
         return file_map(path, source, Vec::new(), parse_errors);
     };

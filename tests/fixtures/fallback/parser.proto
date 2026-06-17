@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package parser;
+
+import "google/protobuf/struct.proto";
+
+enum ParsedType {
+  UNKNOWN = 0;
+  FUNCTION_CALL = 1;
+}
+
+message RegisterRequest {
+  string code_hash = 1;
+  string abi = 2;
+}
+
+message ParseResponse {
+  ParsedType parsed_type = 1;
+  google.protobuf.Struct data = 2;
+}
+
+service ParserService {
+  rpc Register(RegisterRequest) returns (ParseResponse);
+}

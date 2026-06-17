@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 
 use ignore::WalkBuilder;
-
 use lupa::Language;
 
 const DEFAULT_IGNORES: &[&str] = &[

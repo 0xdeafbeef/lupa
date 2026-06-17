@@ -354,9 +354,13 @@ Later:
 - C#
 - Ruby
 - PHP
-- SQL
+- SQL with a real/useful adapter, not a weak whole-file fallback
 
-Language adapters must be additive. A weak adapter is acceptable only if it clearly reports limited support.
+Language adapters must be additive. Fallback parser support requires realistic
+fixtures that produce useful structure without parse-error warnings. If a parser
+only works on toy snippets, emits parse errors on normal repo files, or returns
+only a whole-file node, the language must remain unsupported until a real adapter
+exists.
 
 ## 14. Parser Adapter Contract
 

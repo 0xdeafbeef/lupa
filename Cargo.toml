@@ -8,9 +8,30 @@ license = "WTFPL"
 members = ["."]
 
 [dependencies]
-arborium = { version = "2.18.0", features = ["lang-c", "lang-cpp", "lang-go", "lang-javascript", "lang-json", "lang-just", "lang-nix", "lang-python", "lang-rust", "lang-toml", "lang-typescript", "lang-tsx", "lang-typst", "lang-yaml", "lang-bash", "lang-zsh", "lang-fish", "lang-dockerfile", "lang-sql", "lang-hcl", "lang-proto", "lang-nginx", "lang-make", "lang-cmake", "lang-ini", "lang-ron", "lang-kdl", "lang-styx", "lang-html", "lang-css", "lang-scss", "lang-lua", "lang-graphql"] }
 clap = { version = "4.6.1", features = ["derive"] }
+codebook-tree-sitter-typst = "0.12.1"
 ignore = "0.4.25"
+tree-sitter = "0.25.10"
+tree-sitter-bash = "0.25.1"
+tree-sitter-c = "0.24.2"
+tree-sitter-cmake = "0.7.1"
+tree-sitter-containerfile = "0.8.0"
+tree-sitter-cpp = "0.23.4"
+tree-sitter-css = "0.25.0"
+tree-sitter-fish = "3.6.0"
+tree-sitter-go = "0.25.0"
+tree-sitter-javascript = "0.25.0"
+tree-sitter-json = "0.24.8"
+tree-sitter-just = "0.2.0"
+tree-sitter-lua = "0.5.0"
+tree-sitter-nginx = "1.0.1"
+tree-sitter-nix = "0.3.0"
+tree-sitter-proto = "0.4.0"
+tree-sitter-python = "0.25.0"
+tree-sitter-rust = "0.24.2"
+tree-sitter-toml-ng = "0.7.0"
+tree-sitter-typescript = "0.23.2"
+tree-sitter-yaml = "0.7.2"
 
 [dev-dependencies]
 assert_cmd = "2.0.17"

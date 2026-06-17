@@ -1,10 +1,17 @@
-use assert_cmd::Command;
-use lupa::{Language, SymbolKind};
 use std::path::Path;
 
+use assert_cmd::Command;
+use lupa::{Language, SymbolKind};
+
 const DIGEST_FIXTURE: &str = "tests/fixtures/digest_tree";
+const FALLBACK_BASH_FIXTURE: &str = "tests/fixtures/fallback/script.bash";
+const FALLBACK_CMAKE_FIXTURE: &str = "tests/fixtures/fallback/CMakeLists.txt";
+const FALLBACK_CSS_FIXTURE: &str = "tests/fixtures/fallback/stylesheet.css";
 const FALLBACK_DOCKERFILE_FIXTURE: &str = "tests/fixtures/fallback/Dockerfile";
-const FALLBACK_SQL_FIXTURE: &str = "tests/fixtures/fallback/query.sql";
+const FALLBACK_FISH_FIXTURE: &str = "tests/fixtures/fallback/activate.fish";
+const FALLBACK_LUA_FIXTURE: &str = "tests/fixtures/fallback/probe.lua";
+const FALLBACK_NGINX_FIXTURE: &str = "tests/fixtures/fallback/nginx.conf";
+const FALLBACK_PROTO_FIXTURE: &str = "tests/fixtures/fallback/parser.proto";
 const C_FIXTURE: &str = "tests/fixtures/source_shapes.c";
 const CC_FIXTURE: &str = "tests/fixtures/source_shapes.cc";
 const CPP_FIXTURE: &str = "tests/fixtures/source_shapes.cpp";
@@ -266,7 +273,6 @@ fn language_detects_justfile_names_and_extension() {
 fn fallback_language_list_detects_paths_and_tokens() {
     for (token, language, paths) in [
         ("bash", Language::Bash, &["script.sh", "script.bash"][..]),
-        ("zsh", Language::Zsh, &["script.zsh"][..]),
         ("fish", Language::Fish, &["script.fish"][..]),
         (
             "dockerfile",
@@ -279,62 +285,18 @@ fn fallback_language_list_detects_paths_and_tokens() {
             ][..],
         ),
         (
-            "sql",
-            Language::Sql,
-            &[
-                "query.sql",
-                "query.mysql",
-                "query.postgres",
-                "query.postgresql",
-                "query.sqlite",
-            ][..],
-        ),
-        (
-            "hcl",
-            Language::Hcl,
-            &[
-                "main.hcl",
-                "main.tf",
-                "terraform.tfvars",
-                "module.terraform",
-            ][..],
-        ),
-        (
             "proto",
             Language::Proto,
             &["service.proto", "service.protobuf"][..],
         ),
         ("nginx", Language::Nginx, &["nginx.conf", "site.nginx"][..]),
         (
-            "make",
-            Language::Make,
-            &[
-                "Makefile",
-                "makefile",
-                "GNUmakefile",
-                "rules.make",
-                "rules.mk",
-                "rules.mak",
-            ][..],
-        ),
-        (
             "cmake",
             Language::Cmake,
             &["CMakeLists.txt", "module.cmake"][..],
         ),
-        ("ini", Language::Ini, &["settings.ini", "settings.cfg"][..]),
-        ("ron", Language::Ron, &["settings.ron"][..]),
-        ("kdl", Language::Kdl, &["settings.kdl"][..]),
-        ("styx", Language::Styx, &["settings.styx"][..]),
-        ("html", Language::Html, &["index.html", "index.htm"][..]),
         ("css", Language::Css, &["style.css"][..]),
-        ("scss", Language::Scss, &["style.scss"][..]),
         ("lua", Language::Lua, &["init.lua"][..]),
-        (
-            "graphql",
-            Language::Graphql,
-            &["schema.graphql", "schema.graphqls", "query.gql"][..],
-        ),
     ] {
         assert_eq!(Language::from_token(token), Some(language), "{token}");
         for path in paths {
@@ -346,8 +308,6 @@ fn fallback_language_list_detects_paths_and_tokens() {
         }
     }
 
-    assert_eq!(Language::from_path(Path::new("settings.conf")), None);
-    assert_eq!(Language::from_path(Path::new("style.sass")), None);
     assert_eq!(SymbolKind::Node.to_string(), "node");
 }
 
@@ -421,33 +381,74 @@ fn stdin_map_dispatches_non_rust_language_tokens() {
 
 #[test]
 fn stdin_map_dispatches_fallback_language_tokens() {
-    for (token, source) in [
-        ("bash", "echo hi\n"),
-        ("zsh", "echo hi\n"),
-        ("fish", "echo hi\n"),
-        ("dockerfile", "FROM rust:1\n"),
-        ("sql", "select 1;\n"),
-        ("hcl", "resource \"demo\" \"main\" {}\n"),
-        ("proto", "syntax = \"proto3\";\nmessage Demo {}\n"),
-        ("nginx", "server { listen 80; }\n"),
-        ("make", "build:\n\tcargo build\n"),
-        ("cmake", "project(demo)\n"),
-        ("ini", "[section]\nkey=value\n"),
-        ("ron", "(name: \"demo\")\n"),
-        ("kdl", "node key=\"value\"\n"),
-        ("styx", "let value = 1\n"),
-        ("html", "<div>hi</div>\n"),
-        ("css", "body { color: red; }\n"),
-        ("scss", "$color: red;\nbody { color: $color; }\n"),
-        ("lua", "local value = 1\n"),
-        ("graphql", "query Demo { node { id } }\n"),
+    for (token, source, needles) in [
+        (
+            "bash",
+            include_str!("fixtures/fallback/script.bash"),
+            &[
+                " function_definition get_exclusion_list()",
+                " function_definition#2 calculate_excluded_size()",
+            ][..],
+        ),
+        (
+            "fish",
+            include_str!("fixtures/fallback/activate.fish"),
+            &[
+                " function_definition function deactivate",
+                " if_statement if set -q PYTHONHOME",
+            ][..],
+        ),
+        (
+            "dockerfile",
+            include_str!("fixtures/fallback/Dockerfile"),
+            &[
+                " from_instruction FROM rust:1",
+                " run_instruction RUN cargo --version",
+            ][..],
+        ),
+        (
+            "proto",
+            include_str!("fixtures/fallback/parser.proto"),
+            &[" message RegisterRequest", " service ParserService"][..],
+        ),
+        (
+            "nginx",
+            include_str!("fixtures/fallback/nginx.conf"),
+            &[" directive user nginx;", " attribute http {"][..],
+        ),
+        (
+            "cmake",
+            include_str!("fixtures/fallback/CMakeLists.txt"),
+            &[
+                " normal_command cmake_minimum_required",
+                " foreach_loop foreach (SUBPROJ",
+            ][..],
+        ),
+        (
+            "css",
+            include_str!("fixtures/fallback/stylesheet.css"),
+            &[" at_rule @font-face", " rule_set .button {"][..],
+        ),
+        (
+            "lua",
+            include_str!("fixtures/fallback/probe.lua"),
+            &[
+                " hash_bang_line",
+                " variable_declaration local ffi",
+                " function_call pcall",
+            ][..],
+        ),
     ] {
         let stdout = run_lupa_stdin(&["map", token], source);
         assert_stdout_contains(&stdout, &format!("# - [{token}] "));
         assert_stdout_contains(
             &stdout,
-            "# warning: limited fallback adapter: top-level syntax nodes only\n",
+            "# warning: syntax-only adapter: top-level syntax nodes only\n",
         );
+        assert_stdout_lacks(&stdout, "parse error");
+        for needle in needles {
+            assert_stdout_contains(&stdout, needle);
+        }
     }
 }
 
@@ -681,19 +682,25 @@ fn digest_includes_polyglot_source_extensions() {
         "tests/fixtures/digest_tree/visible.nix",
         "tests/fixtures/digest_tree/visible.py",
         "tests/fixtures/digest_tree/visible.ts",
-        "tests/fixtures/digest_tree/visible.sql",
         "tests/fixtures/digest_tree/visible.toml",
         "tests/fixtures/digest_tree/visible.tsx",
         "tests/fixtures/digest_tree/visible.typ",
         "tests/fixtures/digest_tree/visible.yaml",
         "tests/fixtures/digest_tree/visible.yml",
+        "tests/fixtures/digest_tree/visible.bash",
+        "tests/fixtures/digest_tree/visible.cmake",
+        "tests/fixtures/digest_tree/visible.css",
+        "tests/fixtures/digest_tree/visible.dockerfile",
+        "tests/fixtures/digest_tree/visible.fish",
+        "tests/fixtures/digest_tree/visible.lua",
+        "tests/fixtures/digest_tree/visible.nginx",
+        "tests/fixtures/digest_tree/visible.proto",
     ] {
         assert_stdout_contains(&stdout, path);
     }
-    assert_stdout_contains(
-        &stdout,
-        "visible.sql [sql] 1L 1S limited-fallback statement@L1",
-    );
+    assert_stdout_contains(&stdout, "visible.dockerfile [dockerfile]");
+    assert_stdout_contains(&stdout, "visible.proto [proto]");
+    assert_stdout_contains(&stdout, "syntax-only");
 }
 
 #[test]
@@ -708,85 +715,76 @@ fn parse_error_warning_appears_with_partial_output() {
 }
 
 #[test]
-fn fallback_sql_maps_nested_message_tree_query() {
-    let stdout = run_lupa(&["map", FALLBACK_SQL_FIXTURE]);
-
-    assert_stdout_contains(
-        &stdout,
-        "# tests/fixtures/fallback/query.sql [sql] 90L 3157B 1S\n",
-    );
-    assert_stdout_contains(
-        &stdout,
-        "# warning: parse error at L32: parse error in ERROR\n",
-    );
-    assert_eq!(
-        stdout
-            .matches("# warning: parse error at L32: parse error in ERROR\n")
-            .count(),
-        1,
-        "{stdout}"
-    );
-    assert_stdout_contains(
-        &stdout,
-        "# warning: limited fallback adapter: top-level syntax nodes only\n",
-    );
-    assert_stdout_contains(&stdout, "L1-L90 statement WITH RECURSIVE\n");
-}
-
-#[test]
-fn fallback_sql_show_keys_and_context_cover_nested_query() {
-    let stdout = run_lupa(&["keys", FALLBACK_SQL_FIXTURE]);
-    assert_eq!(stdout, "statement L1-L90\n");
-
-    let stdout = run_lupa(&["show", FALLBACK_SQL_FIXTURE, "statement"]);
-    assert_stdout_contains(&stdout, "# statement@L1-L90\n");
-    assert_stdout_contains(&stdout, "WITH RECURSIVE\n");
-    assert_stdout_contains(
-        &stdout,
-        "WHERE transaction_hash IN (SELECT transaction_hash\n",
-    );
-    assert_stdout_contains(&stdout, "INNER JOIN child_traversal\n");
-    assert_stdout_contains(&stdout, "ORDER BY m.created_at, m.created_lt\n");
-
-    let hit = format!("{FALLBACK_SQL_FIXTURE}:1");
-    let stdout = run_lupa(&["context", hit.as_str()]);
-    assert_stdout_contains(
-        &stdout,
-        "# warning: limited fallback adapter: top-level syntax nodes only\n",
-    );
-    assert_stdout_contains(
-        &stdout,
-        "tests/fixtures/fallback/query.sql statement@L1-L90 hits L1 WITH RECURSIVE\n",
-    );
-}
-
-#[test]
-fn fallback_sql_duplicate_statements_get_deterministic_keys() {
-    let fixture = "tests/fixtures/fallback/statements.sql";
-
-    let stdout = run_lupa(&["map", fixture]);
-    assert_stdout_contains(&stdout, "L1 statement select 1\n");
-    assert_stdout_contains(&stdout, "L2 statement#2 select 2\n");
-
-    let stdout = run_lupa(&["show", fixture, "statement#2"]);
-    assert_stdout_contains(&stdout, "# statement#2@L2\n");
-    assert_stdout_contains(&stdout, "select 2;\n");
-}
-
-#[test]
-fn fallback_dockerfile_maps_top_level_nodes() {
-    let stdout = run_lupa(&["map", FALLBACK_DOCKERFILE_FIXTURE]);
-
-    assert_stdout_contains(
-        &stdout,
-        "# tests/fixtures/fallback/Dockerfile [dockerfile] 2L 32B 2S\n",
-    );
-    assert_stdout_contains(
-        &stdout,
-        "# warning: limited fallback adapter: top-level syntax nodes only\n",
-    );
-    assert_stdout_contains(&stdout, "L1 from_instruction FROM rust:1\n");
-    assert_stdout_contains(&stdout, "L2 run_instruction RUN cargo --version\n");
+fn retained_fallback_fixtures_map_useful_top_level_nodes() {
+    for (fixture, language, needles) in [
+        (
+            FALLBACK_BASH_FIXTURE,
+            "bash",
+            &[
+                " function_definition get_exclusion_list()",
+                " function_definition#2 calculate_excluded_size()",
+            ][..],
+        ),
+        (
+            FALLBACK_CMAKE_FIXTURE,
+            "cmake",
+            &[
+                " normal_command cmake_minimum_required",
+                " foreach_loop foreach (SUBPROJ",
+            ][..],
+        ),
+        (
+            FALLBACK_CSS_FIXTURE,
+            "css",
+            &[" at_rule @font-face", " rule_set .button {"][..],
+        ),
+        (
+            FALLBACK_DOCKERFILE_FIXTURE,
+            "dockerfile",
+            &[
+                " from_instruction FROM rust:1",
+                " run_instruction RUN cargo --version",
+            ][..],
+        ),
+        (
+            FALLBACK_FISH_FIXTURE,
+            "fish",
+            &[
+                " function_definition function deactivate",
+                " if_statement if set -q PYTHONHOME",
+            ][..],
+        ),
+        (
+            FALLBACK_LUA_FIXTURE,
+            "lua",
+            &[
+                " hash_bang_line",
+                " variable_declaration local ffi",
+                " function_call pcall",
+            ][..],
+        ),
+        (
+            FALLBACK_NGINX_FIXTURE,
+            "nginx",
+            &[" directive user nginx;", " attribute http {"][..],
+        ),
+        (
+            FALLBACK_PROTO_FIXTURE,
+            "proto",
+            &[" message RegisterRequest", " service ParserService"][..],
+        ),
+    ] {
+        let stdout = run_lupa(&["map", fixture]);
+        assert_stdout_contains(&stdout, &format!("# {fixture} [{language}] "));
+        assert_stdout_contains(
+            &stdout,
+            "# warning: syntax-only adapter: top-level syntax nodes only\n",
+        );
+        assert_stdout_lacks(&stdout, "parse error");
+        for needle in needles {
+            assert_stdout_contains(&stdout, needle);
+        }
+    }
 }
 
 #[test]

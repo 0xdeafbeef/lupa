@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use arborium::tree_sitter::{Node, Parser};
+use tree_sitter::{Node, Parser};
 
+use crate::grammars;
 use crate::model::{FileMap, Language, LineSpan, ParseError, Symbol, SymbolKind};
 
 #[derive(Clone, Copy)]
@@ -22,11 +23,11 @@ impl LanguageVariant {
         }
     }
 
-    fn parser_name(self) -> &'static str {
+    fn language(self) -> Language {
         match self {
-            Self::JavaScript => "javascript",
-            Self::TypeScript => "typescript",
-            Self::Tsx => "tsx",
+            Self::JavaScript => Language::JavaScript,
+            Self::TypeScript => Language::TypeScript,
+            Self::Tsx => Language::Tsx,
         }
     }
 
@@ -43,14 +44,10 @@ pub fn parse(path: &Path, language: Language, source: String) -> FileMap {
     let variant = LanguageVariant::from_language(language);
     let mut parser = Parser::new();
     let mut parse_errors = Vec::new();
-    let Some(parser_language) = arborium::get_language(variant.parser_name()) else {
+    let Some(parser_language) = grammars::language(variant.language()) else {
         parse_errors.push(ParseError {
             line: 1,
-            message: format!(
-                "failed to load {} grammar: Arborium grammar '{}' is not enabled",
-                variant.grammar_name(),
-                variant.parser_name()
-            ),
+            message: format!("failed to load {} grammar", variant.grammar_name()),
         });
         return file_map(path, language, source, Vec::new(), parse_errors);
     };

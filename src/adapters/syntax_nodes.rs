@@ -1,24 +1,20 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use ::arborium::tree_sitter::{Node, Parser};
+use tree_sitter::{Node, Parser};
 
+use crate::grammars;
 use crate::model::{FileMap, Language, LineSpan, ParseError, Symbol, SymbolKind};
 
-const LIMITED_FALLBACK_WARNING: &str = "limited fallback adapter: top-level syntax nodes only";
+const SYNTAX_ONLY_WARNING: &str = "syntax-only adapter: top-level syntax nodes only";
 
 pub fn parse(path: &Path, language: Language, source: String) -> FileMap {
-    let parser_name = language
-        .arborium_parser_name()
-        .expect("fallback adapter called with non-fallback language");
     let mut parser = Parser::new();
     let mut parse_errors = Vec::new();
-    let Some(grammar) = ::arborium::get_language(parser_name) else {
+    let Some(grammar) = grammars::language(language) else {
         parse_errors.push(ParseError {
             line: 1,
-            message: format!(
-                "failed to load {language} grammar: Arborium grammar '{parser_name}' is not enabled"
-            ),
+            message: format!("failed to load {language} grammar"),
         });
         return file_map(path, language, source, Vec::new(), parse_errors);
     };
@@ -55,7 +51,7 @@ fn file_map(
 ) -> FileMap {
     let mut file = FileMap::new(path.to_path_buf(), language, source, symbols);
     file.parse_errors = parse_errors;
-    file.warnings.push(LIMITED_FALLBACK_WARNING.to_owned());
+    file.warnings.push(SYNTAX_ONLY_WARNING.to_owned());
     file
 }
 
