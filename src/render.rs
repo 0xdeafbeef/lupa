@@ -167,12 +167,36 @@ fn render_no_match(
     out: &mut impl fmt::Write,
 ) -> fmt::Result {
     writeln!(out, "# no {key}")?;
-    let candidates = symbols
+    let mut candidates = Vec::new();
+    let leaf = key.rsplit('.').next().unwrap_or(key);
+    if leaf != key && !leaf.is_empty() {
+        for symbol in symbols
+            .iter()
+            .copied()
+            .filter(|symbol| symbol.key == leaf || symbol.name == leaf)
+        {
+            candidates.push(symbol);
+            if candidates.len() == 8 {
+                break;
+            }
+        }
+    }
+    for symbol in symbols
         .iter()
         .copied()
         .filter(|symbol| symbol.key.contains(key) || symbol.name.contains(key))
-        .take(8)
-        .collect::<Vec<_>>();
+    {
+        if candidates.len() == 8 {
+            break;
+        }
+        if candidates
+            .iter()
+            .any(|candidate| candidate.key == symbol.key)
+        {
+            continue;
+        }
+        candidates.push(symbol);
+    }
     if !candidates.is_empty() {
         writeln!(out, "# candidates")?;
         for symbol in candidates {
