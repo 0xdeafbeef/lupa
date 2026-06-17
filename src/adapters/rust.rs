@@ -1,14 +1,21 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-use tree_sitter::{Node, Parser};
+use arborium::tree_sitter::{Node, Parser};
 
 use crate::model::{FileMap, Language, LineSpan, ParseError, Symbol, SymbolKind};
 
 pub fn parse(path: &Path, source: String) -> FileMap {
     let mut parser = Parser::new();
-    let language = tree_sitter_rust::LANGUAGE.into();
     let mut parse_errors = Vec::new();
+    let Some(language) = arborium::get_language("rust") else {
+        parse_errors.push(ParseError {
+            line: 1,
+            message: "failed to load Rust grammar: Arborium grammar 'rust' is not enabled"
+                .to_owned(),
+        });
+        return file_map(path, source, Vec::new(), parse_errors);
+    };
 
     if let Err(err) = parser.set_language(&language) {
         parse_errors.push(ParseError {
@@ -141,7 +148,7 @@ impl<'a> Collector<'a> {
         let mut cursor = node.walk();
         for child in node.named_children(&mut cursor) {
             match child.kind() {
-                "attribute_item" => self.push_attribute(child, &mut attrs),
+                "attribute_item" | "attributes" => self.push_attributes(child, &mut attrs),
                 "enum_item" => self.push_type_symbol(
                     child,
                     prefix,
@@ -247,8 +254,8 @@ impl<'a> Collector<'a> {
         let mut cursor = body.walk();
         for child in body.named_children(&mut cursor) {
             match child.kind() {
-                "attribute_item" => {
-                    self.push_attribute(child, &mut attrs);
+                "attribute_item" | "attributes" => {
+                    self.push_attributes(child, &mut attrs);
                     continue;
                 }
                 kind if is_comment_kind(kind) => continue,
@@ -290,7 +297,7 @@ impl<'a> Collector<'a> {
         let mut cursor = body.walk();
         for child in body.named_children(&mut cursor) {
             match child.kind() {
-                "attribute_item" => self.push_attribute(child, &mut attrs),
+                "attribute_item" | "attributes" => self.push_attributes(child, &mut attrs),
                 "function_item" | "function_signature_item" => {
                     if let Some(symbol) =
                         self.method_symbol(child, parent_key, Some(parent_key), attrs.take())
@@ -311,8 +318,8 @@ impl<'a> Collector<'a> {
         let mut cursor = node.walk();
         for child in node.named_children(&mut cursor) {
             match child.kind() {
-                "attribute_item" => {
-                    self.push_attribute(child, &mut attrs);
+                "attribute_item" | "attributes" => {
+                    self.push_attributes(child, &mut attrs);
                     continue;
                 }
                 kind if is_comment_kind(kind) => continue,
@@ -349,8 +356,8 @@ impl<'a> Collector<'a> {
         let mut cursor = node.walk();
         for child in node.named_children(&mut cursor) {
             match child.kind() {
-                "attribute_item" => {
-                    self.push_attribute(child, &mut attrs);
+                "attribute_item" | "attributes" => {
+                    self.push_attributes(child, &mut attrs);
                     continue;
                 }
                 "visibility_modifier" => {
@@ -431,7 +438,7 @@ impl<'a> Collector<'a> {
         let mut cursor = body.walk();
         for child in body.named_children(&mut cursor) {
             match child.kind() {
-                "attribute_item" => self.push_attribute(child, &mut attrs),
+                "attribute_item" | "attributes" => self.push_attributes(child, &mut attrs),
                 "function_item" => {
                     if let Some(symbol) =
                         self.method_symbol(child, parent_key, Some(parent_key), attrs.take())
@@ -444,6 +451,20 @@ impl<'a> Collector<'a> {
             }
         }
         methods
+    }
+
+    fn push_attributes(&self, node: Node<'_>, attrs: &mut Attributes) {
+        if node.kind() == "attribute_item" {
+            self.push_attribute(node, attrs);
+            return;
+        }
+
+        let mut cursor = node.walk();
+        for child in node.named_children(&mut cursor) {
+            if child.kind() == "attribute_item" {
+                self.push_attribute(child, attrs);
+            }
+        }
     }
 
     fn push_attribute(&self, node: Node<'_>, attrs: &mut Attributes) {

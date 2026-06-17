@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use tree_sitter::{Language as TsLanguage, Node, Parser};
+use arborium::tree_sitter::{Node, Parser};
 
 use crate::model::{FileMap, Language, LineSpan, ParseError, Symbol, SymbolKind};
 
@@ -22,11 +22,11 @@ impl LanguageVariant {
         }
     }
 
-    fn language(self) -> TsLanguage {
+    fn parser_name(self) -> &'static str {
         match self {
-            Self::JavaScript => tree_sitter_javascript::LANGUAGE.into(),
-            Self::TypeScript => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
-            Self::Tsx => tree_sitter_typescript::LANGUAGE_TSX.into(),
+            Self::JavaScript => "javascript",
+            Self::TypeScript => "typescript",
+            Self::Tsx => "tsx",
         }
     }
 
@@ -42,8 +42,18 @@ impl LanguageVariant {
 pub fn parse(path: &Path, language: Language, source: String) -> FileMap {
     let variant = LanguageVariant::from_language(language);
     let mut parser = Parser::new();
-    let parser_language = variant.language();
     let mut parse_errors = Vec::new();
+    let Some(parser_language) = arborium::get_language(variant.parser_name()) else {
+        parse_errors.push(ParseError {
+            line: 1,
+            message: format!(
+                "failed to load {} grammar: Arborium grammar '{}' is not enabled",
+                variant.grammar_name(),
+                variant.parser_name()
+            ),
+        });
+        return file_map(path, language, source, Vec::new(), parse_errors);
+    };
 
     if let Err(err) = parser.set_language(&parser_language) {
         parse_errors.push(ParseError {

@@ -1,14 +1,21 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use tree_sitter::{Node, Parser};
+use arborium::tree_sitter::{Node, Parser};
 
 use crate::model::{FileMap, Language, LineSpan, ParseError, Symbol, SymbolKind};
 
 pub fn parse_json(path: &Path, source: String) -> FileMap {
     let mut parser = Parser::new();
-    let language = tree_sitter_json::LANGUAGE.into();
     let mut parse_errors = Vec::new();
+    let Some(language) = arborium::get_language("json") else {
+        parse_errors.push(ParseError {
+            line: 1,
+            message: "failed to load JSON grammar: Arborium grammar 'json' is not enabled"
+                .to_owned(),
+        });
+        return file_map(path, Language::Json, source, Vec::new(), parse_errors);
+    };
 
     if let Err(err) = parser.set_language(&language) {
         parse_errors.push(ParseError {
@@ -34,8 +41,15 @@ pub fn parse_json(path: &Path, source: String) -> FileMap {
 
 pub fn parse_toml(path: &Path, source: String) -> FileMap {
     let mut parser = Parser::new();
-    let language = tree_sitter_toml_ng::LANGUAGE.into();
     let mut parse_errors = Vec::new();
+    let Some(language) = arborium::get_language("toml") else {
+        parse_errors.push(ParseError {
+            line: 1,
+            message: "failed to load TOML grammar: Arborium grammar 'toml' is not enabled"
+                .to_owned(),
+        });
+        return file_map(path, Language::Toml, source, Vec::new(), parse_errors);
+    };
 
     if let Err(err) = parser.set_language(&language) {
         parse_errors.push(ParseError {
@@ -61,8 +75,15 @@ pub fn parse_toml(path: &Path, source: String) -> FileMap {
 
 pub fn parse_yaml(path: &Path, source: String) -> FileMap {
     let mut parser = Parser::new();
-    let language = tree_sitter_yaml::LANGUAGE.into();
     let mut parse_errors = Vec::new();
+    let Some(language) = arborium::get_language("yaml") else {
+        parse_errors.push(ParseError {
+            line: 1,
+            message: "failed to load YAML grammar: Arborium grammar 'yaml' is not enabled"
+                .to_owned(),
+        });
+        return file_map(path, Language::Yaml, source, Vec::new(), parse_errors);
+    };
 
     if let Err(err) = parser.set_language(&language) {
         parse_errors.push(ParseError {
