@@ -1,3 +1,4 @@
+pub mod arborium;
 pub mod c_family;
 pub mod config;
 pub mod go;
@@ -15,6 +16,25 @@ use crate::model::{FileMap, Language};
 
 pub fn parse_source(path: &Path, language: Language, source: String) -> Result<FileMap, String> {
     match language {
+        Language::Bash
+        | Language::Cmake
+        | Language::Css
+        | Language::Dockerfile
+        | Language::Fish
+        | Language::Graphql
+        | Language::Hcl
+        | Language::Html
+        | Language::Ini
+        | Language::Kdl
+        | Language::Lua
+        | Language::Make
+        | Language::Nginx
+        | Language::Proto
+        | Language::Ron
+        | Language::Scss
+        | Language::Sql
+        | Language::Styx
+        | Language::Zsh => Ok(arborium::parse(path, language, source)),
         Language::C | Language::Cpp => Ok(c_family::parse(path, language, source)),
         Language::Go => Ok(go::parse(path, source)),
         Language::JavaScript | Language::Jsx | Language::Tsx | Language::TypeScript => {

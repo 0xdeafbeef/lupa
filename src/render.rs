@@ -24,6 +24,9 @@ pub fn render_map(file: &FileMap, out: &mut impl fmt::Write) -> fmt::Result {
             error.line, error.message
         )?;
     }
+    for warning in &file.warnings {
+        writeln!(out, "# warning: {warning}")?;
+    }
     for symbol in &file.symbols {
         render_symbol(symbol, 0, out)?;
     }
@@ -65,6 +68,9 @@ pub fn render_digest(files: &[FileMap], out: &mut impl fmt::Write) -> fmt::Resul
         )?;
         if !file.parse_errors.is_empty() {
             write!(out, " {}E", file.parse_errors.len())?;
+        }
+        if !file.warnings.is_empty() {
+            write!(out, " limited-fallback")?;
         }
         for symbol in file.symbols.iter().take(DIGEST_MAX_TOP) {
             write!(out, " {}@{}", symbol.key, symbol.range)?;

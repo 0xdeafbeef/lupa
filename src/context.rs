@@ -46,6 +46,9 @@ pub fn render_context(file: &FileMap, lines: &[usize], out: &mut impl fmt::Write
             error.line, error.message
         )?;
     }
+    for warning in &file.warnings {
+        writeln!(out, "# warning: {warning}")?;
+    }
 
     let symbols = file.all_symbols();
     let mut groups = Vec::<ContextGroup<'_>>::new();

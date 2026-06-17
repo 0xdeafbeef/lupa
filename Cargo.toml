@@ -8,7 +8,7 @@ license = "WTFPL"
 members = ["."]
 
 [dependencies]
-arborium = { version = "2.18.0", features = ["lang-c", "lang-cpp", "lang-go", "lang-javascript", "lang-json", "lang-just", "lang-nix", "lang-python", "lang-rust", "lang-toml", "lang-typescript", "lang-tsx", "lang-typst", "lang-yaml"] }
+arborium = { version = "2.18.0", features = ["lang-c", "lang-cpp", "lang-go", "lang-javascript", "lang-json", "lang-just", "lang-nix", "lang-python", "lang-rust", "lang-toml", "lang-typescript", "lang-tsx", "lang-typst", "lang-yaml", "lang-bash", "lang-zsh", "lang-fish", "lang-dockerfile", "lang-sql", "lang-hcl", "lang-proto", "lang-nginx", "lang-make", "lang-cmake", "lang-ini", "lang-ron", "lang-kdl", "lang-styx", "lang-html", "lang-css", "lang-scss", "lang-lua", "lang-graphql"] }
 clap = { version = "4.6.1", features = ["derive"] }
 ignore = "0.4.25"
 
