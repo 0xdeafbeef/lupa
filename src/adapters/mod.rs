@@ -11,15 +11,6 @@ use std::path::Path;
 
 use crate::model::{FileMap, Language};
 
-pub fn parse_file(path: &Path) -> Result<FileMap, String> {
-    let language = Language::from_path(path)
-        .ok_or_else(|| format!("# error: unsupported file type: {}", path.display()))?;
-    let source = std::fs::read_to_string(path)
-        .map_err(|err| format!("# error: failed to read {}: {err}", path.display()))?;
-
-    parse_source(path, language, source)
-}
-
 pub fn parse_source(path: &Path, language: Language, source: String) -> Result<FileMap, String> {
     match language {
         Language::C | Language::Cpp => Ok(c_family::parse(path, language, source)),
@@ -35,8 +26,4 @@ pub fn parse_source(path: &Path, language: Language, source: String) -> Result<F
         Language::Toml => Ok(config::parse_toml(path, source)),
         Language::Yaml => Ok(config::parse_yaml(path, source)),
     }
-}
-
-pub fn is_supported(path: &Path) -> bool {
-    Language::from_path(path).is_some()
 }

@@ -1,8 +1,4 @@
-mod adapters;
 mod cli;
-mod context;
-mod model;
-mod render;
 mod walk;
 
 fn main() -> std::process::ExitCode {

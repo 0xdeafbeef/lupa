@@ -5,8 +5,9 @@ use std::path::{Path, PathBuf};
 use clap::error::ErrorKind;
 use clap::{Parser, Subcommand};
 
-use crate::model::{FileMap, Language};
-use crate::{adapters, context, render, walk};
+use lupa::{context, parse_source, render, FileMap, Language};
+
+use crate::walk;
 
 #[derive(Debug, Parser)]
 #[command(name = "lupa", about = "Agent-first source navigation")]
@@ -101,13 +102,13 @@ fn map(paths: Vec<PathBuf>) -> Result<String, String> {
             continue;
         }
         if path.is_file() {
-            match adapters::parse_file(&path) {
+            match parse_file(&path) {
                 Ok(file) => render::render_map(&file, &mut out).map_err(render_error)?,
                 Err(err) => push_error(&mut out, &err),
             }
         } else {
             for file_path in walk::collect_supported_files(&[path]) {
-                match adapters::parse_file(&file_path) {
+                match parse_file(&file_path) {
                     Ok(file) => render::render_map(&file, &mut out).map_err(render_error)?,
                     Err(err) => push_error(&mut out, &err),
                 }
@@ -127,7 +128,7 @@ fn show(file: PathBuf, keys: Vec<String>) -> Result<String, String> {
     if !file.exists() {
         return Ok(format!("# error: path not found: {}\n", file.display()));
     }
-    match adapters::parse_file(&file) {
+    match parse_file(&file) {
         Ok(file) => {
             let mut out = String::new();
             render::render_show(&file, &keys, &mut out).map_err(render_error)?;
@@ -146,13 +147,13 @@ fn digest(paths: Vec<PathBuf>) -> Result<String, String> {
             continue;
         }
         if path.is_file() {
-            match adapters::parse_file(&path) {
+            match parse_file(&path) {
                 Ok(file) => files.push(file),
                 Err(err) => push_error(&mut out, &err),
             }
         } else {
             for file_path in walk::collect_supported_files(&[path]) {
-                match adapters::parse_file(&file_path) {
+                match parse_file(&file_path) {
                     Ok(file) => files.push(file),
                     Err(err) => push_error(&mut out, &err),
                 }
@@ -173,7 +174,7 @@ fn keys(file: PathBuf) -> Result<String, String> {
     if !file.exists() {
         return Ok(format!("# error: path not found: {}\n", file.display()));
     }
-    match adapters::parse_file(&file) {
+    match parse_file(&file) {
         Ok(file) => {
             let mut out = String::new();
             render::render_keys(&file, &mut out).map_err(render_error)?;
@@ -224,7 +225,7 @@ fn context(inputs: Vec<String>) -> Result<String, String> {
             out.push_str(&format!("# error: path not found: {}\n", path.display()));
             continue;
         }
-        match adapters::parse_file(&path) {
+        match parse_file(&path) {
             Ok(file) => {
                 context::render_context(&file, &lines, &mut out).map_err(render_error)?;
             }
@@ -249,7 +250,16 @@ fn stdin_file_for_language_arg(path: &Path) -> Result<Option<FileMap>, String> {
     let Some(source) = read_source_stdin()? else {
         return Ok(None);
     };
-    adapters::parse_source(Path::new("-"), language, source).map(Some)
+    parse_source(Path::new("-"), language, source).map(Some)
+}
+
+fn parse_file(path: &Path) -> Result<FileMap, String> {
+    let language = Language::from_path(path)
+        .ok_or_else(|| format!("# error: unsupported file type: {}", path.display()))?;
+    let source = std::fs::read_to_string(path)
+        .map_err(|err| format!("# error: failed to read {}: {err}", path.display()))?;
+
+    parse_source(path, language, source)
 }
 
 fn starts_with_language_token(paths: &[PathBuf]) -> bool {

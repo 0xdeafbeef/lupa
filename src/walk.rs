@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use ignore::WalkBuilder;
 
-use crate::adapters;
+use lupa::Language;
 
 const DEFAULT_IGNORES: &[&str] = &[
     ".git",
@@ -22,7 +22,7 @@ pub fn collect_supported_files(paths: &[PathBuf]) -> Vec<PathBuf> {
     let mut files = Vec::new();
     for path in paths {
         if path.is_file() {
-            if adapters::is_supported(path) {
+            if Language::from_path(path).is_some() {
                 files.push(path.clone());
             }
         } else if path.is_dir() {
@@ -43,7 +43,7 @@ fn collect_dir(path: &Path, out: &mut Vec<PathBuf>) {
         if should_skip(entry_path) {
             continue;
         }
-        if entry_path.is_file() && adapters::is_supported(entry_path) {
+        if entry_path.is_file() && Language::from_path(entry_path).is_some() {
             out.push(entry_path.to_path_buf());
         }
     }
