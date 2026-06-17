@@ -1,0 +1,25 @@
+syntax = "proto3";
+package stress.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "example.com/stress/v1;stressv1";
+
+message Envelope {
+  message Payload {
+    string id = 1;
+    repeated string tags = 2;
+  }
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    KIND_DELTA = 1;
+  }
+  oneof body {
+    Payload payload = 3;
+    string raw = 4;
+  }
+}
+
+service Router {
+  rpc Send(Envelope) returns (Envelope);
+}

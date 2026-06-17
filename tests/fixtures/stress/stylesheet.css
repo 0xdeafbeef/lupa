@@ -1,0 +1,15 @@
+@property --gap {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 1rem;
+}
+
+@media (min-width: 720px) {
+  .panel { display: grid; gap: var(--gap); }
+}
+
+@supports selector(:has(*)) {
+  .panel:has(.item:hover) { color: color-mix(in srgb, red, blue); }
+}
+
+.panel[data-state="open"] > .item::before { content: ""; }

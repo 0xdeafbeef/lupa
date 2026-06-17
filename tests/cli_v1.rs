@@ -39,6 +39,480 @@ const TYPST_FIXTURE: &str = "tests/fixtures/source_shapes.typ";
 const UNSUPPORTED_FIXTURE: &str = "tests/fixtures/not_source.txt";
 const YAML_FIXTURE: &str = "tests/fixtures/source_shapes.yaml";
 
+const EXPECTED_STRESS_LANGUAGES: &[Language] = &[
+    Language::Bash,
+    Language::C,
+    Language::Cmake,
+    Language::Cpp,
+    Language::Css,
+    Language::Dockerfile,
+    Language::Fish,
+    Language::Go,
+    Language::JavaScript,
+    Language::Json,
+    Language::Just,
+    Language::Jsx,
+    Language::Lua,
+    Language::Markdown,
+    Language::Nginx,
+    Language::Nix,
+    Language::Proto,
+    Language::Python,
+    Language::Rust,
+    Language::Tsx,
+    Language::Toml,
+    Language::Typst,
+    Language::TypeScript,
+    Language::Yaml,
+];
+
+struct StressFixture {
+    language: Language,
+    fixture: &'static str,
+    syntax_only: bool,
+    map_needles: &'static [&'static str],
+    absent_map_needles: &'static [&'static str],
+    show_cases: &'static [ShowCase],
+}
+
+struct ShowCase {
+    keys: &'static [&'static str],
+    needles: &'static [&'static str],
+}
+
+const STRESS_FIXTURES: &[StressFixture] = &[
+    StressFixture {
+        language: Language::Bash,
+        fixture: "tests/fixtures/stress/script.bash",
+        syntax_only: true,
+        map_needles: &[
+            " case_statement case \"${1:-build}\" in",
+            " function_definition outer() {",
+            " function_definition#2 helper() {",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[],
+    },
+    StressFixture {
+        language: Language::C,
+        fixture: "tests/fixtures/stress/source.c",
+        syntax_only: false,
+        map_needles: &[
+            " NestedConfig ",
+            " NestedConfig.callback ",
+            " Mode ",
+            " install_callback ",
+            " run_pipeline ",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[ShowCase {
+            keys: &["run_pipeline"],
+            needles: &[
+                "# run_pipeline@",
+                "int run_pipeline(NestedConfig *config, Mode mode) {\n",
+                "return mode == ModeHot ? install_callback(total, double_value) : total;\n",
+            ],
+        }],
+    },
+    StressFixture {
+        language: Language::Cmake,
+        fixture: "tests/fixtures/stress/CMakeLists.txt",
+        syntax_only: true,
+        map_needles: &[
+            " normal_command cmake_minimum_required(VERSION 3.24)",
+            " function_def function(add_stress_target name)",
+            " macro_def macro(enable_feature target feature)",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[],
+    },
+    StressFixture {
+        language: Language::Cpp,
+        fixture: "tests/fixtures/stress/source.cpp",
+        syntax_only: false,
+        map_needles: &[
+            " engine.Pipeline ",
+            " Stage ",
+            " engine.Pipeline.run ",
+            " engine.Pipeline_T_.configure ",
+            " engine.make_pipeline ",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[ShowCase {
+            keys: &["engine.Pipeline.run", "engine.make_pipeline"],
+            needles: &[
+                "# engine.Pipeline.run@",
+                "auto fold = [stage](int seed) { return seed + static_cast<int>(stage.value); };\n",
+                "# engine.make_pipeline@",
+                "Pipeline<int> make_pipeline() {\n",
+            ],
+        }],
+    },
+    StressFixture {
+        language: Language::Css,
+        fixture: "tests/fixtures/stress/stylesheet.css",
+        syntax_only: true,
+        map_needles: &[
+            " at_rule @property --gap {",
+            " media_statement @media (min-width: 720px) {",
+            " supports_statement @supports selector(:has(*)) {",
+            " rule_set .panel[data-state=\"open\"] > .item::before",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[],
+    },
+    StressFixture {
+        language: Language::Dockerfile,
+        fixture: "tests/fixtures/stress/Dockerfile",
+        syntax_only: true,
+        map_needles: &[
+            " from_instruction FROM rust:1.82 AS planner",
+            " env_instruction ENV CARGO_TERM_COLOR=always",
+            " run_instruction RUN --mount=type=cache",
+            " copy_instruction COPY --from=planner",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[],
+    },
+    StressFixture {
+        language: Language::Fish,
+        fixture: "tests/fixtures/stress/activate.fish",
+        syntax_only: true,
+        map_needles: &[
+            " function_definition function activate --argument-names root",
+            " function_definition#2 function deactivate",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[],
+    },
+    StressFixture {
+        language: Language::Go,
+        fixture: "tests/fixtures/stress/source.go",
+        syntax_only: false,
+        map_needles: &[
+            " Loader ",
+            " Loader.Load ",
+            " Cache ",
+            " Cache.loader ",
+            " Cache.Get ",
+            " NewCache ",
+            " wrapLoader ",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[ShowCase {
+            keys: &["Cache.Get", "wrapLoader"],
+            needles: &[
+                "# Cache.Get@",
+                "func (c *Cache[T]) Get(ctx context.Context, key string) (T, error) {\n",
+                "# wrapLoader@",
+                "return func(ctx context.Context, key string) (T, error) {\n",
+            ],
+        }],
+    },
+    StressFixture {
+        language: Language::JavaScript,
+        fixture: "tests/fixtures/stress/source.js",
+        syntax_only: false,
+        map_needles: &[
+            " Registry ",
+            " Registry.from ",
+            " Registry.size ",
+            " Registry.register ",
+            " Registry.build ",
+            " createRegistry ",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[ShowCase {
+            keys: &["Registry.build", "createRegistry"],
+            needles: &[
+                "# Registry.build@",
+                "return [...this.#items.entries()].map",
+                "# createRegistry@",
+                "export function createRegistry(entries = []) {\n",
+            ],
+        }],
+    },
+    StressFixture {
+        language: Language::Json,
+        fixture: "tests/fixtures/stress/source.json",
+        syntax_only: false,
+        map_needles: &[
+            " service ",
+            " service.plugins ",
+            " service.plugins.hooks ",
+            " matrix ",
+            " matrix.include.os ",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[],
+    },
+    StressFixture {
+        language: Language::Just,
+        fixture: "tests/fixtures/stress/justfile",
+        syntax_only: false,
+        map_needles: &[
+            " PROFILE ",
+            " b ",
+            " default ",
+            " build ",
+            " deploy ",
+            " test ",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[ShowCase {
+            keys: &["deploy"],
+            needles: &[
+                "# deploy@",
+                "deploy host +args: build\n",
+                "    rsync -az target/{{host}} {{args}}\n",
+            ],
+        }],
+    },
+    StressFixture {
+        language: Language::Jsx,
+        fixture: "tests/fixtures/stress/source.jsx",
+        syntax_only: false,
+        map_needles: &[" Dashboard ", " Shell "],
+        absent_map_needles: &[],
+        show_cases: &[ShowCase {
+            keys: &["Dashboard"],
+            needles: &[
+                "# Dashboard@",
+                "function Row({ row }) {\n",
+                "const cells = row.items.map((item) => render?.(item)",
+            ],
+        }],
+    },
+    StressFixture {
+        language: Language::Lua,
+        fixture: "tests/fixtures/stress/probe.lua",
+        syntax_only: true,
+        map_needles: &[
+            " hash_bang_line #!/usr/bin/env lua",
+            " variable_declaration local ffi = require(\"ffi\")",
+            " function_declaration local function memoize(name, loader)",
+            " function_declaration#2 function M:configure(opts)",
+            " function_call setmetatable(M.cache, mt)",
+            " function_call#2 pcall(function()",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[],
+    },
+    StressFixture {
+        language: Language::Markdown,
+        fixture: "tests/fixtures/stress/document.md",
+        syntax_only: false,
+        map_needles: &[
+            " Title ",
+            " Title.Setup ",
+            " Title.Setup.Deep ",
+            " Title.Setup#2 ",
+        ],
+        absent_map_needles: &["Fake Heading"],
+        show_cases: &[ShowCase {
+            keys: &["Title.Setup#2"],
+            needles: &[
+                "# Title.Setup#2@",
+                "## Setup\n",
+                "Duplicate heading text.\n",
+            ],
+        }],
+    },
+    StressFixture {
+        language: Language::Nginx,
+        fixture: "tests/fixtures/stress/nginx.conf",
+        syntax_only: true,
+        map_needles: &[
+            " directive user nginx;",
+            " directive#2 worker_processes auto;",
+            " directive#3 events {",
+            " attribute http {",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[],
+    },
+    StressFixture {
+        language: Language::Nix,
+        fixture: "tests/fixtures/stress/source.nix",
+        syntax_only: false,
+        map_needles: &[
+            " mkService ",
+            " mkService.settings ",
+            " services.web ",
+            " packages ",
+            " packages.api.package ",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[ShowCase {
+            keys: &["services.web"],
+            needles: &[
+                "# services.web@",
+                "services.web = mkService \"web\" 8080;\n",
+            ],
+        }],
+    },
+    StressFixture {
+        language: Language::Proto,
+        fixture: "tests/fixtures/stress/schema.proto",
+        syntax_only: true,
+        map_needles: &[
+            " syntax syntax = \"proto3\";",
+            " package package stress.v1;",
+            " option option go_package = \"example.com/stress/v1;stressv1\";",
+            " message message Envelope {",
+            " service service Router {",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[],
+    },
+    StressFixture {
+        language: Language::Python,
+        fixture: "tests/fixtures/stress/source.py",
+        syntax_only: false,
+        map_needles: &[
+            " Options ",
+            " traced ",
+            " Service ",
+            " Service.__init__ ",
+            " Service.start ",
+            " build_service ",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[ShowCase {
+            keys: &["Service.start", "build_service"],
+            needles: &[
+                "# Service.start@",
+                "normalize = lambda value: self.Inner().normalize(value)\n",
+                "def filter_value(value: str) -> bool:\n",
+                "# build_service@",
+            ],
+        }],
+    },
+    StressFixture {
+        language: Language::Rust,
+        fixture: "tests/fixtures/stress/source.rs",
+        syntax_only: false,
+        map_needles: &[
+            " pipeline.Stage ",
+            " pipeline.Event ",
+            " pipeline.Runner ",
+            " pipeline.Runner.run ",
+            " impl_Runner ",
+            " pipeline.build_runner ",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[ShowCase {
+            keys: &["pipeline.Runner.run"],
+            needles: &[
+                "# pipeline.Runner.run@",
+                "pub async fn run(&self, events: &[Event]) -> Vec<String> {\n",
+                "let format = |event: &Event| match event {\n",
+            ],
+        }],
+    },
+    StressFixture {
+        language: Language::Tsx,
+        fixture: "tests/fixtures/stress/source.tsx",
+        syntax_only: false,
+        map_needles: &[
+            " PanelProps ",
+            " PanelProps.render ",
+            " Panel ",
+            " Toolbar ",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[ShowCase {
+            keys: &["Panel"],
+            needles: &[
+                "# Panel@",
+                "export function Panel<T extends { id: string }>(props: PanelProps<T>) {\n",
+                "function Item({ item }: { item: T }) {\n",
+            ],
+        }],
+    },
+    StressFixture {
+        language: Language::Toml,
+        fixture: "tests/fixtures/stress/source.toml",
+        syntax_only: false,
+        map_needles: &[
+            " service ",
+            " service.limits ",
+            " service.routes ",
+            " service.routes.path ",
+            " service.routes#2 ",
+            " metadata.owner.name ",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[ShowCase {
+            keys: &["service.routes"],
+            needles: &[
+                "# service.routes@",
+                "[[service.routes]]\n",
+                "handler = { name = \"root\", cache = true }\n",
+            ],
+        }],
+    },
+    StressFixture {
+        language: Language::Typst,
+        fixture: "tests/fixtures/stress/source.typ",
+        syntax_only: false,
+        map_needles: &[" accent ", " badge(body) ", " Report ", " Report.Section "],
+        absent_map_needles: &["Fake Raw Heading", "Fake Comment Heading"],
+        show_cases: &[ShowCase {
+            keys: &["Report.Section"],
+            needles: &[
+                "# Report.Section@",
+                "== Section\n",
+                "Text with #badge[inline] content.\n",
+            ],
+        }],
+    },
+    StressFixture {
+        language: Language::TypeScript,
+        fixture: "tests/fixtures/stress/source.ts",
+        syntax_only: false,
+        map_needles: &[
+            " RecordSource ",
+            " RecordSource.load ",
+            " Store ",
+            " Store.constructor ",
+            " Store.load ",
+            " Store.map ",
+            " createStore ",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[ShowCase {
+            keys: &["Store.map"],
+            needles: &[
+                "# Store.map@",
+                "map<R>(items: T[], project: (item: T) => R): R[] {\n",
+                "const normalize = (item: T) => ({ ...item, id: item.id.trim() });\n",
+            ],
+        }],
+    },
+    StressFixture {
+        language: Language::Yaml,
+        fixture: "tests/fixtures/stress/source.yaml",
+        syntax_only: false,
+        map_needles: &[
+            " defaults ",
+            " service ",
+            " service.routes.path ",
+            " jobs.name ",
+            " metadata.owner ",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[ShowCase {
+            keys: &["service.routes"],
+            needles: &[
+                "# service.routes@",
+                "routes:\n",
+                "handler: { name: root, cache: true }\n",
+            ],
+        }],
+    },
+];
+
 #[test]
 fn map_prints_exact_keys_that_show_accepts() {
     let stdout = run_lupa(&["map", RUST_FIXTURE]);
@@ -1340,6 +1814,86 @@ fn polyglot_keys_print_expected_ranges() {
             assert_stdout_contains(&stdout, line);
         }
         assert_stdout_lacks(&stdout, "key=");
+    }
+}
+
+#[test]
+fn language_stress_fixtures_cover_supported_languages() {
+    let languages: Vec<_> = STRESS_FIXTURES
+        .iter()
+        .map(|fixture| fixture.language)
+        .collect();
+    assert_eq!(languages.as_slice(), EXPECTED_STRESS_LANGUAGES);
+    for (index, fixture) in STRESS_FIXTURES.iter().enumerate() {
+        for previous in &STRESS_FIXTURES[..index] {
+            assert_ne!(
+                fixture.language, previous.language,
+                "duplicate stress fixture language: {}",
+                fixture.language
+            );
+        }
+    }
+
+    for fixture in STRESS_FIXTURES {
+        let stdout = run_lupa(&["map", fixture.fixture]);
+        let header = format!("# {} [{}] ", fixture.fixture, fixture.language);
+        assert!(
+            stdout.contains(&header),
+            "{} stress fixture missing header {header:?}\nstdout:\n{stdout}",
+            fixture.language
+        );
+        assert!(
+            !stdout.contains("parse error"),
+            "{} stress fixture parsed with errors: {}\nstdout:\n{stdout}",
+            fixture.language,
+            fixture.fixture
+        );
+        if fixture.syntax_only {
+            assert!(
+                stdout.contains("# warning: syntax-only adapter: top-level syntax nodes only\n"),
+                "{} syntax-only stress fixture missing warning: {}\nstdout:\n{stdout}",
+                fixture.language,
+                fixture.fixture
+            );
+        } else {
+            assert!(
+                !stdout.contains("syntax-only adapter"),
+                "{} typed stress fixture unexpectedly used syntax-only adapter: {}\nstdout:\n{stdout}",
+                fixture.language,
+                fixture.fixture
+            );
+        }
+        for needle in fixture.map_needles {
+            assert!(
+                stdout.contains(needle),
+                "{} stress fixture {} missing map needle {needle:?}\nstdout:\n{stdout}",
+                fixture.language,
+                fixture.fixture
+            );
+        }
+        for needle in fixture.absent_map_needles {
+            assert!(
+                !stdout.contains(needle),
+                "{} stress fixture {} unexpectedly contained map needle {needle:?}\nstdout:\n{stdout}",
+                fixture.language,
+                fixture.fixture
+            );
+        }
+
+        for show_case in fixture.show_cases {
+            let mut args = vec!["show", fixture.fixture];
+            args.extend_from_slice(show_case.keys);
+            let stdout = run_lupa(&args);
+            for needle in show_case.needles {
+                assert!(
+                    stdout.contains(needle),
+                    "{} stress fixture {} missing show needle {needle:?} for keys {:?}\nstdout:\n{stdout}",
+                    fixture.language,
+                    fixture.fixture,
+                    show_case.keys
+                );
+            }
+        }
     }
 }
 

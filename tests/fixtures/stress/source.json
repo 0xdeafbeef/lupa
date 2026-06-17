@@ -1,0 +1,19 @@
+{
+  "service": {
+    "name": "stress",
+    "plugins": [
+      {
+        "name": "auth",
+        "hooks": {
+          "before": ["load", "verify"],
+          "after": ["audit"]
+        }
+      }
+    ]
+  },
+  "matrix": {
+    "include": [
+      { "os": "linux", "features": ["ssl", "simd"] }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+title = "stress"
+
+[service]
+name = "api"
+enabled = true
+
+[service.limits]
+timeout_ms = 5000
+retries = 3
+
+[[service.routes]]
+path = "/"
+handler = { name = "root", cache = true }
+
+[[service.routes]]
+path = "/v1"
+handler = { name = "api", cache = false }
+
+[metadata]
+owner = { name = "ops", team = "tools" }

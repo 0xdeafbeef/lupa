@@ -1,0 +1,22 @@
+defaults: &defaults
+  retries: 3
+  timeout_ms: 5000
+
+service:
+  <<: *defaults
+  name: api
+  routes:
+    - path: /
+      handler: { name: root, cache: true }
+    - path: /v1
+      handler: { name: api, cache: false }
+
+jobs:
+  - name: build
+    steps:
+      - run: cargo build
+  - name: test
+    steps:
+      - run: cargo test
+
+metadata: { owner: ops, team: tools }
