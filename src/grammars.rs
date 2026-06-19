@@ -13,6 +13,7 @@ pub(crate) fn language(language: Language) -> Option<tree_sitter::Language> {
         Language::JavaScript | Language::Jsx => tree_sitter_javascript::LANGUAGE.into(),
         Language::Json => tree_sitter_json::LANGUAGE.into(),
         Language::Just => tree_sitter_just::LANGUAGE.into(),
+        Language::Kotlin => tree_sitter_kotlin_ng::LANGUAGE.into(),
         Language::Lua => tree_sitter_lua::LANGUAGE.into(),
         Language::Markdown => return None,
         Language::Nginx => tree_sitter_nginx::LANGUAGE.into(),

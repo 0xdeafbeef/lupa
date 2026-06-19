@@ -25,6 +25,7 @@ const JS_FIXTURE: &str = "tests/fixtures/source_shapes.js";
 const JSON_FIXTURE: &str = "tests/fixtures/source_shapes.json";
 const JUST_FIXTURE: &str = "tests/fixtures/justfile";
 const JSX_FIXTURE: &str = "tests/fixtures/source_shapes.jsx";
+const KOTLIN_SCRIPT_FIXTURE: &str = "tests/fixtures/source_shapes.kts";
 const MARKDOWN_FIXTURE: &str = "tests/fixtures/duplicate_headings.md";
 const NIX_FIXTURE: &str = "tests/fixtures/source_shapes.nix";
 const NO_BLOCK_PLS_FIXTURE: &str = "tests/fixtures/no_block_pls_shapes.rs";
@@ -52,6 +53,7 @@ const EXPECTED_STRESS_LANGUAGES: &[Language] = &[
     Language::Json,
     Language::Just,
     Language::Jsx,
+    Language::Kotlin,
     Language::Lua,
     Language::Markdown,
     Language::Nginx,
@@ -280,6 +282,52 @@ const STRESS_FIXTURES: &[StressFixture] = &[
                 "# Dashboard@",
                 "function Row({ row }) {\n",
                 "const cells = row.items.map((item) => render?.(item)",
+            ],
+        }],
+    },
+    StressFixture {
+        language: Language::Kotlin,
+        fixture: "tests/fixtures/stress/source.kt",
+        syntax_only: false,
+        map_needles: &[
+            " Screen sealed interface Screen",
+            " Screen.Loading data object Loading : Screen",
+            " Screen.Ready data class Ready(val count: Int) : Screen",
+            " Tone enum class Tone",
+            " TradeWatchItem data class TradeWatchItem",
+            " TradeWatchItem.priceText val priceText: String get()",
+            " TradeWatchItem.Factory companion object Factory",
+            " TradeWatchItem.Factory.fallback val fallback = TradeWatchItem(\"TON\", 0.0)",
+            " TradeWatchItem.Factory.fromTicker fun fromTicker(ticker: String): TradeWatchItem",
+            " TradeWatchItem.label fun label(prefix: String): String",
+            " TradeWatchRegistry object TradeWatchRegistry",
+            " TradeWatchRegistry.default val default = TradeWatchItem(\"TON\", 1.0)",
+            " TradeWatchRegistry.Companion companion object",
+            " TradeWatchRegistry.Companion.empty val empty = TradeWatchItem(\"NONE\", 0.0)",
+            " TradeWatchRegistry.build fun build(): TradeWatchItem",
+            " TradeWatchItem.tone fun TradeWatchItem.tone(): Tone",
+            " appName val appName = \"Trade\"",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[ShowCase {
+            keys: &[
+                "TradeWatchItem.Factory",
+                "TradeWatchRegistry.Companion",
+                "TradeWatchItem.label",
+                "TradeWatchItem.tone",
+            ],
+            needles: &[
+                "# TradeWatchItem.Factory@",
+                "companion object Factory {\n",
+                "fun fromTicker(ticker: String): TradeWatchItem = TradeWatchItem(ticker, 1.0)\n",
+                "# TradeWatchRegistry.Companion@",
+                "companion object {\n",
+                "val empty = TradeWatchItem(\"NONE\", 0.0)\n",
+                "# TradeWatchItem.label@",
+                "fun label(prefix: String): String {\n",
+                "val normalize = { value: String -> value.trim().uppercase() }\n",
+                "# TradeWatchItem.tone@",
+                "fun TradeWatchItem.tone(): Tone = if (price > 0) Tone.Good else Tone.Bad\n",
             ],
         }],
     },
@@ -744,6 +792,15 @@ fn language_detects_justfile_names_and_extension() {
 }
 
 #[test]
+fn language_detects_kotlin_files_and_scripts() {
+    for path in ["Main.kt", "build.gradle.kts"] {
+        assert_eq!(Language::from_path(Path::new(path)), Some(Language::Kotlin));
+    }
+
+    assert_eq!(Language::from_token("kotlin"), Some(Language::Kotlin));
+}
+
+#[test]
 fn fallback_language_list_detects_paths_and_tokens() {
     for (token, language, paths) in [
         ("bash", Language::Bash, &["script.sh", "script.bash"][..]),
@@ -851,6 +908,14 @@ fn stdin_map_dispatches_non_rust_language_tokens() {
     assert_stdout_contains(&stdout, "# - [typst] 3L 29B 2S\n");
     assert_stdout_contains(&stdout, " title #let title = \"Lupa\"\n");
     assert_stdout_contains(&stdout, " Intro = Intro\n");
+
+    let stdout = run_lupa_stdin(
+        &["map", "kotlin"],
+        "class Widget {\n    fun render(): String = \"ok\"\n}\n",
+    );
+    assert_stdout_contains(&stdout, "# - [kotlin] 3L 49B 2S\n");
+    assert_stdout_contains(&stdout, " Widget class Widget\n");
+    assert_stdout_contains(&stdout, " Widget.render fun render(): String\n");
 }
 
 #[test]
@@ -1152,6 +1217,8 @@ fn digest_includes_polyglot_source_extensions() {
         "tests/fixtures/digest_tree/visible.json",
         "tests/fixtures/digest_tree/visible.just",
         "tests/fixtures/digest_tree/visible.jsx",
+        "tests/fixtures/digest_tree/visible.kt",
+        "tests/fixtures/digest_tree/visible.kts",
         "tests/fixtures/digest_tree/justfile",
         "tests/fixtures/digest_tree/visible.nix",
         "tests/fixtures/digest_tree/visible.py",
@@ -1173,6 +1240,8 @@ fn digest_includes_polyglot_source_extensions() {
         assert_stdout_contains(&stdout, path);
     }
     assert_stdout_contains(&stdout, "visible.dockerfile [dockerfile]");
+    assert_stdout_contains(&stdout, "visible.kt [kotlin]");
+    assert_stdout_contains(&stdout, "visible.kts [kotlin]");
     assert_stdout_contains(&stdout, "visible.proto [proto]");
     assert_stdout_contains(&stdout, "syntax-only");
 }
@@ -1486,6 +1555,10 @@ fn polyglot_map_prints_expected_keys() {
                 " Resume.Summary ",
                 " Resume.Experience ",
             ][..],
+        ),
+        (
+            KOTLIN_SCRIPT_FIXTURE,
+            &[" plugins ", " endpoint ", " android ", " dependencies "][..],
         ),
     ] {
         let stdout = run_lupa(&["map", fixture]);

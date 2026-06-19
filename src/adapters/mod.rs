@@ -3,6 +3,7 @@ pub mod config;
 pub mod go;
 pub mod javascript;
 pub mod just;
+pub mod kotlin;
 pub mod markdown;
 pub mod nix;
 pub mod python;
@@ -31,6 +32,7 @@ pub fn parse_source(path: &Path, language: Language, source: String) -> Result<F
         }
         Language::Json => Ok(config::parse_json(path, source)),
         Language::Just => Ok(just::parse(path, source)),
+        Language::Kotlin => Ok(kotlin::parse(path, source)),
         Language::Markdown => Ok(markdown::parse(path, source)),
         Language::Nix => Ok(nix::parse(path, source)),
         Language::Python => Ok(python::parse(path, source)),
