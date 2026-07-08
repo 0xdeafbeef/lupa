@@ -8,6 +8,7 @@ pub mod markdown;
 pub mod nix;
 pub mod python;
 pub mod rust;
+pub mod svelte;
 pub mod syntax_nodes;
 pub mod typst;
 
@@ -37,6 +38,7 @@ pub fn parse_source(path: &Path, language: Language, source: String) -> Result<F
         Language::Nix => Ok(nix::parse(path, source)),
         Language::Python => Ok(python::parse(path, source)),
         Language::Rust => Ok(rust::parse(path, source)),
+        Language::Svelte => Ok(svelte::parse(path, source)),
         Language::Toml => Ok(config::parse_toml(path, source)),
         Language::Typst => Ok(typst::parse(path, source)),
         Language::Yaml => Ok(config::parse_yaml(path, source)),

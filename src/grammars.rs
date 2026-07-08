@@ -21,6 +21,7 @@ pub(crate) fn language(language: Language) -> Option<tree_sitter::Language> {
         Language::Proto => tree_sitter_proto::LANGUAGE.into(),
         Language::Python => tree_sitter_python::LANGUAGE.into(),
         Language::Rust => tree_sitter_rust::LANGUAGE.into(),
+        Language::Svelte => tree_sitter_svelte_next::LANGUAGE.into(),
         Language::Toml => tree_sitter_toml_ng::LANGUAGE.into(),
         Language::Tsx => tree_sitter_typescript::LANGUAGE_TSX.into(),
         Language::Typst => codebook_tree_sitter_typst::LANGUAGE.into(),

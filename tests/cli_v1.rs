@@ -33,6 +33,7 @@ const PARSE_ERROR_FIXTURE: &str = "tests/fixtures/parse_error.rs";
 const PYTHON_FIXTURE: &str = "tests/fixtures/source_shapes.py";
 const RUST_ATTRIBUTES_FIXTURE: &str = "tests/fixtures/rust_attributes.rs";
 const RUST_FIXTURE: &str = "tests/fixtures/rust_symbols.rs";
+const SVELTE_FIXTURE: &str = "tests/fixtures/source_shapes.svelte";
 const TOML_FIXTURE: &str = "tests/fixtures/source_shapes.toml";
 const TS_FIXTURE: &str = "tests/fixtures/source_shapes.ts";
 const TSX_FIXTURE: &str = "tests/fixtures/source_shapes.tsx";
@@ -61,6 +62,7 @@ const EXPECTED_STRESS_LANGUAGES: &[Language] = &[
     Language::Proto,
     Language::Python,
     Language::Rust,
+    Language::Svelte,
     Language::Tsx,
     Language::Toml,
     Language::Typst,
@@ -459,6 +461,50 @@ const STRESS_FIXTURES: &[StressFixture] = &[
         }],
     },
     StressFixture {
+        language: Language::Svelte,
+        fixture: "tests/fixtures/stress/source.svelte",
+        syntax_only: false,
+        map_needles: &[
+            " script <script lang=\"ts\">",
+            " main <main data-count={count}>",
+            " main.button <button onclick={increment}>Clicked {count}</button>",
+            " main.Icon <Icon name=\"plus\" />",
+            " main.if {#if count > 0}",
+            " main.if.each {#each items as item, index (item.id)}",
+            " main.if.each.Row <Row {item} {index} />",
+            " main.await {#await ready}",
+            " main.key {#key count}",
+            " main.label {#snippet label(name)}",
+            " main.render {@render label(\"total\")}",
+            " main.const {@const doubled = count * 2}",
+            " style <style>",
+        ],
+        absent_map_needles: &["syntax-only adapter", "parse error"],
+        show_cases: &[ShowCase {
+            keys: &[
+                "script",
+                "main.if.each",
+                "main.await",
+                "main.label",
+                "style",
+            ],
+            needles: &[
+                "# script@",
+                "<script lang=\"ts\">\n",
+                "function increment() {\n",
+                "# main.if.each@",
+                "{#each items as item, index (item.id)}\n",
+                "# main.await@",
+                "{#await ready}\n",
+                "{:catch err}\n",
+                "# main.label@",
+                "{#snippet label(name)}\n",
+                "# style@",
+                "main {\n",
+            ],
+        }],
+    },
+    StressFixture {
         language: Language::Tsx,
         fixture: "tests/fixtures/stress/source.tsx",
         syntax_only: false,
@@ -801,6 +847,15 @@ fn language_detects_kotlin_files_and_scripts() {
 }
 
 #[test]
+fn language_detects_svelte_files() {
+    assert_eq!(
+        Language::from_path(Path::new("Widget.svelte")),
+        Some(Language::Svelte)
+    );
+    assert_eq!(Language::from_token("svelte"), Some(Language::Svelte));
+}
+
+#[test]
 fn fallback_language_list_detects_paths_and_tokens() {
     for (token, language, paths) in [
         ("bash", Language::Bash, &["script.sh", "script.bash"][..]),
@@ -916,6 +971,43 @@ fn stdin_map_dispatches_non_rust_language_tokens() {
     assert_stdout_contains(&stdout, "# - [kotlin] 3L 49B 2S\n");
     assert_stdout_contains(&stdout, " Widget class Widget\n");
     assert_stdout_contains(&stdout, " Widget.render fun render(): String\n");
+
+    let stdout = run_lupa_stdin(
+        &["map", "svelte"],
+        "<script>\n    let count = 0;\n</script>\n\n<button>{count}</button>\n",
+    );
+    assert_stdout_contains(&stdout, "# - [svelte] 5L 64B 2S\n");
+    assert_stdout_contains(&stdout, " script <script>\n");
+    assert_stdout_contains(&stdout, " button <button>{count}</button>\n");
+}
+
+#[test]
+fn svelte_raw_text_ampersand_does_not_warn() {
+    let stdout = run_lupa_stdin(
+        &["map", "svelte"],
+        "<button><MessageSquarePlus size={14} /> Edit & fork</button>\n",
+    );
+
+    assert_stdout_contains(&stdout, "# - [svelte] ");
+    assert_stdout_contains(
+        &stdout,
+        " button <button><MessageSquarePlus size={14} /> Edit & fork</button>\n",
+    );
+    assert_stdout_lacks(&stdout, "parse error");
+}
+
+#[test]
+fn svelte_structural_parse_error_still_warns() {
+    let stdout = run_lupa_stdin(
+        &["map", "svelte"],
+        "<button><MessageSquarePlus size={14} /> Edit & {</button>\n",
+    );
+
+    assert_stdout_contains(&stdout, "# - [svelte] ");
+    assert_stdout_contains(
+        &stdout,
+        "# warning: parse error at L1: parse error in ERROR\n",
+    );
 }
 
 #[test]
@@ -1222,6 +1314,7 @@ fn digest_includes_polyglot_source_extensions() {
         "tests/fixtures/digest_tree/justfile",
         "tests/fixtures/digest_tree/visible.nix",
         "tests/fixtures/digest_tree/visible.py",
+        "tests/fixtures/digest_tree/visible.svelte",
         "tests/fixtures/digest_tree/visible.ts",
         "tests/fixtures/digest_tree/visible.toml",
         "tests/fixtures/digest_tree/visible.tsx",
@@ -1243,6 +1336,7 @@ fn digest_includes_polyglot_source_extensions() {
     assert_stdout_contains(&stdout, "visible.kt [kotlin]");
     assert_stdout_contains(&stdout, "visible.kts [kotlin]");
     assert_stdout_contains(&stdout, "visible.proto [proto]");
+    assert_stdout_contains(&stdout, "visible.svelte [svelte]");
     assert_stdout_contains(&stdout, "syntax-only");
 }
 
@@ -1528,6 +1622,23 @@ fn polyglot_map_prints_expected_keys() {
             ][..],
         ),
         (
+            SVELTE_FIXTURE,
+            &[
+                " script ",
+                " section ",
+                " section.h1 ",
+                " section.Widget ",
+                " section.if ",
+                " section.if.each ",
+                " section.await ",
+                " section.key ",
+                " section.summary ",
+                " section.render ",
+                " section.const ",
+                " style ",
+            ][..],
+        ),
+        (
             GO_FIXTURE,
             &[
                 " Server ",
@@ -1713,6 +1824,20 @@ fn polyglot_show_prints_selected_symbols() {
             ][..],
         ),
         (
+            SVELTE_FIXTURE,
+            &["script", "section.if.each", "section.await", "style"][..],
+            &[
+                "# script@L1-L5\n",
+                "<script lang=\"ts\">\n",
+                "# section.if.each@L11-L13\n",
+                "{#each items as item (item.id)}\n",
+                "# section.await@L17-L21\n",
+                "{:then result}\n",
+                "# style@L32-L36\n",
+                "<style>\n",
+            ][..],
+        ),
+        (
             GO_FIXTURE,
             &["Server.Start", "NewServer"][..],
             &[
@@ -1859,6 +1984,17 @@ fn polyglot_keys_print_expected_ranges() {
         (
             TSX_FIXTURE,
             &["ButtonProps L1-L4\n", "Button L6-L8\n", "Toolbar L10-L12\n"][..],
+        ),
+        (
+            SVELTE_FIXTURE,
+            &[
+                "script L1-L5\n",
+                "section L7-L30\n",
+                "section.if.each.Row L12\n",
+                "section.await.p#2 L20\n",
+                "section.summary.span L26\n",
+                "style L32-L36\n",
+            ][..],
         ),
         (
             GO_FIXTURE,
