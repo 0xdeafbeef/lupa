@@ -32,6 +32,15 @@
               lockFile = ./Cargo.lock;
             };
 
+            nativeBuildInputs = [ pkgs.pkg-config ];
+            buildInputs = [
+              pkgs.onnxruntime
+              pkgs.openssl
+            ];
+
+            ORT_LIB_PATH = "${pkgs.onnxruntime}/lib";
+            ORT_PREFER_DYNAMIC_LINK = "1";
+
             meta = {
               description = "Structure-aware source outline and context tool";
               homepage = "https://github.com/0xdeafbeef/lupa";

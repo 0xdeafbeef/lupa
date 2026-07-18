@@ -13,6 +13,7 @@ codebook-tree-sitter-typst = "0.12.1"
 ignore = "0.4.25"
 jsonc-parser = "0.33.0"
 magika = "1.1.0"
+# Enables ORT's default download/copy runtime features for Magika through Cargo feature unification.
 ort = "=2.0.0-rc.12"
 tree-sitter = "0.25.10"
 tree-sitter-bash = "0.25.1"
