@@ -114,6 +114,8 @@ const STRESS_FIXTURES: &[StressFixture] = &[
             needles: &[
                 "# run_pipeline@",
                 "int run_pipeline(NestedConfig *config, Mode mode) {\n",
+                "ASSERT_VALUE(0, <=, total);\n",
+                "ASSERT_VALUE(total,\n                 >, -1);\n",
                 "return mode == ModeHot ? install_callback(total, double_value) : total;\n",
             ],
         }],
@@ -1004,6 +1006,17 @@ fn svelte_structural_parse_error_still_warns() {
     );
 
     assert_stdout_contains(&stdout, "# - [svelte] ");
+    assert_stdout_contains(
+        &stdout,
+        "# warning: parse error at L1: parse error in ERROR\n",
+    );
+}
+
+#[test]
+fn c_structural_parse_error_still_warns() {
+    let stdout = run_lupa_stdin(&["map", "c"], "int broken( {\n");
+
+    assert_stdout_contains(&stdout, "# - [c] 1L 14B 0S\n");
     assert_stdout_contains(
         &stdout,
         "# warning: parse error at L1: parse error in ERROR\n",

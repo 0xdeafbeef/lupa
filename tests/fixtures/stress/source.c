@@ -1,4 +1,5 @@
 #define WITH_CALLBACK(name) int name(int value, int (*callback)(int))
+#define ASSERT_VALUE(expected, op, actual) ((expected)op(actual))
 
 typedef struct NestedConfig {
     int timeout_ms;
@@ -30,5 +31,8 @@ int run_pipeline(NestedConfig *config, Mode mode) {
     for (int i = 0; i < config->limits.retries; i++) {
         total += config->callback(i);
     }
+    ASSERT_VALUE(0, <=, total);
+    ASSERT_VALUE(total,
+                 >, -1);
     return mode == ModeHot ? install_callback(total, double_value) : total;
 }

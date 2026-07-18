@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -56,7 +57,12 @@ pub fn parse(path: &Path, language: Language, source: String) -> FileMap {
         return file_map(path, language, source, Vec::new(), parse_errors);
     }
 
-    let Some(tree) = parser.parse(&source, None) else {
+    let parser_source = if language == Language::C {
+        mask_macro_comparison_arguments(&source)
+    } else {
+        Cow::Borrowed(source.as_str())
+    };
+    let Some(tree) = parser.parse(parser_source.as_ref(), None) else {
         parse_errors.push(ParseError {
             line: 1,
             message: "tree-sitter returned no parse tree".to_owned(),
@@ -69,6 +75,48 @@ pub fn parse(path: &Path, language: Language, source: String) -> FileMap {
 
     let symbols = Collector::new(&source).collect(root);
     file_map(path, language, source, symbols, parse_errors)
+}
+
+fn mask_macro_comparison_arguments(source: &str) -> Cow<'_, str> {
+    let mut commas = source.match_indices(',').map(|(index, _)| index);
+    let Some(mut left_comma) = commas.next() else {
+        return Cow::Borrowed(source);
+    };
+    let mut masked = None;
+
+    for right_comma in commas {
+        let argument = &source[left_comma + 1..right_comma];
+        let operator = argument.trim_ascii();
+        if is_comparison_operator(operator.as_bytes()) {
+            let operator_start = left_comma
+                + 1
+                + argument
+                    .find(operator)
+                    .expect("trimmed operator comes from the argument");
+            let operator_end = operator_start + operator.len();
+            // C test macros commonly accept an operator as an argument. Tree-sitter
+            // cannot parse the bare token, so use a same-width identifier while
+            // preserving every byte and line offset into the original source.
+            masked
+                .get_or_insert_with(|| source.as_bytes().to_vec())
+                .get_mut(operator_start..operator_end)
+                .expect("operator range comes from the source bytes")
+                .fill(b'x');
+        }
+        left_comma = right_comma;
+    }
+
+    match masked {
+        Some(masked) => Cow::Owned(
+            String::from_utf8(masked)
+                .expect("masking ASCII operators preserves valid UTF-8 source"),
+        ),
+        None => Cow::Borrowed(source),
+    }
+}
+
+fn is_comparison_operator(operator: &[u8]) -> bool {
+    matches!(operator, [b'<' | b'>'] | [b'=' | b'!' | b'<' | b'>', b'='])
 }
 
 fn file_map(
