@@ -151,6 +151,7 @@ const STRESS_FIXTURES: &[StressFixture] = &[
                 "auto fold = [stage](int seed) { return seed + static_cast<int>(stage.value); };\n",
                 "# engine.make_pipeline@",
                 "Pipeline<int> make_pipeline() {\n",
+                "SCOPE_EXIT {\n        pipeline.run({0});\n    };\n",
             ],
         }],
     },
@@ -1017,6 +1018,17 @@ fn c_structural_parse_error_still_warns() {
     let stdout = run_lupa_stdin(&["map", "c"], "int broken( {\n");
 
     assert_stdout_contains(&stdout, "# - [c] 1L 14B 0S\n");
+    assert_stdout_contains(
+        &stdout,
+        "# warning: parse error at L1: parse error in ERROR\n",
+    );
+}
+
+#[test]
+fn cpp_structural_parse_error_still_warns() {
+    let stdout = run_lupa_stdin(&["map", "cpp"], "namespace broken { void f( {\n");
+
+    assert_stdout_contains(&stdout, "# - [cpp] 1L 29B 0S\n");
     assert_stdout_contains(
         &stdout,
         "# warning: parse error at L1: parse error in ERROR\n",

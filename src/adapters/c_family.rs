@@ -57,10 +57,10 @@ pub fn parse(path: &Path, language: Language, source: String) -> FileMap {
         return file_map(path, language, source, Vec::new(), parse_errors);
     }
 
-    let parser_source = if language == Language::C {
-        mask_macro_comparison_arguments(&source)
-    } else {
-        Cow::Borrowed(source.as_str())
+    let parser_source = match language {
+        Language::C => mask_macro_comparison_arguments(&source),
+        Language::Cpp => mask_cpp_scope_exit_blocks(&source),
+        language => unreachable!("{language} passed to C-family parser"),
     };
     let Some(tree) = parser.parse(parser_source.as_ref(), None) else {
         parse_errors.push(ParseError {
@@ -117,6 +117,56 @@ fn mask_macro_comparison_arguments(source: &str) -> Cow<'_, str> {
 
 fn is_comparison_operator(operator: &[u8]) -> bool {
     matches!(operator, [b'<' | b'>'] | [b'=' | b'!' | b'<' | b'>', b'='])
+}
+
+fn mask_cpp_scope_exit_blocks(source: &str) -> Cow<'_, str> {
+    const SCOPE_EXIT: &str = "SCOPE_EXIT";
+    const REPLACEMENT: &[u8; SCOPE_EXIT.len()] = b"if (true) ";
+
+    let bytes = source.as_bytes();
+    let mut masked = None;
+
+    for (start, _) in source.match_indices(SCOPE_EXIT) {
+        let end = start + SCOPE_EXIT.len();
+        if start
+            .checked_sub(1)
+            .and_then(|index| bytes.get(index))
+            .is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+            || bytes
+                .get(end)
+                .is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+        {
+            continue;
+        }
+
+        let Some(brace) = bytes[end..]
+            .iter()
+            .position(|byte| !byte.is_ascii_whitespace())
+            .map(|offset| end + offset)
+        else {
+            continue;
+        };
+        if bytes[brace] != b'{' {
+            continue;
+        }
+
+        // This TDLib-style scope guard looks like a block macro, but expands to
+        // a lambda assignment. Give tree-sitter an equivalent block shape while
+        // preserving every byte and line offset into the original source.
+        masked
+            .get_or_insert_with(|| bytes.to_vec())
+            .get_mut(start..end)
+            .expect("SCOPE_EXIT range comes from the source bytes")
+            .copy_from_slice(REPLACEMENT);
+    }
+
+    match masked {
+        Some(masked) => Cow::Owned(
+            String::from_utf8(masked)
+                .expect("masking ASCII macro names preserves valid UTF-8 source"),
+        ),
+        None => Cow::Borrowed(source),
+    }
 }
 
 fn file_map(
@@ -202,6 +252,12 @@ impl<'a> Collector<'a> {
                 }
             }
             "namespace_definition" => self.collect_namespace(node, prefix, symbols),
+            "preproc_if" => {
+                let mut cursor = node.walk();
+                for child in node.named_children(&mut cursor) {
+                    self.collect_item(child, child, prefix, parent_key, symbols);
+                }
+            }
             "struct_specifier" | "union_specifier" => {
                 if let Some(symbol) = self.type_symbol(outer, node, prefix, SymbolKind::Struct) {
                     symbols.push(symbol);

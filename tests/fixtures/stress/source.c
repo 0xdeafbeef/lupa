@@ -1,3 +1,4 @@
+#if ENABLE_C_STRESS
 #define WITH_CALLBACK(name) int name(int value, int (*callback)(int))
 #define ASSERT_VALUE(expected, op, actual) ((expected)op(actual))
 
@@ -36,3 +37,4 @@ int run_pipeline(NestedConfig *config, Mode mode) {
                  >, -1);
     return mode == ModeHot ? install_callback(total, double_value) : total;
 }
+#endif

@@ -1,3 +1,6 @@
+#define SCOPE_EXIT auto scope_exit = [&]
+
+#if ENABLE_CPP_STRESS
 namespace engine {
 
 template <class T>
@@ -22,7 +25,11 @@ int Pipeline<T>::configure(int timeout) {
 
 Pipeline<int> make_pipeline() {
     Pipeline<int> pipeline;
+    SCOPE_EXIT {
+        pipeline.run({0});
+    };
     return pipeline;
 }
 
 }
+#endif
