@@ -32,6 +32,8 @@ impl LanguageDetector {
 
 fn language_from_content_type(content_type: Option<ContentType>) -> Option<Language> {
     match content_type {
+        Some(ContentType::Diff) => Some(Language::Diff),
+        Some(ContentType::Gitmodules | ContentType::Ini) => Some(Language::Ini),
         Some(ContentType::Shell) => Some(Language::Bash),
         _ => None,
     }

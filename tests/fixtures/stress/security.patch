@@ -1,0 +1,25 @@
+diff --git a/src/check.rs b/src/check.rs
+index 1234567..89abcde 100644
+--- a/src/check.rs
++++ b/src/check.rs
+@@ -8,6 +8,10 @@ pub fn validate(input: &[u8]) -> Result<()> {
+     let header = parse_header(input)?;
+-    accept(header)
++    if header.is_alias() {
++        return Err(Error::AliasRejected);
++    }
++    accept(header)
+ }
+
+diff --git a/tests/check.rs b/tests/check.rs
+new file mode 100644
+index 0000000..7654321
+--- /dev/null
++++ b/tests/check.rs
+@@ -0,0 +1,6 @@
++#[test]
++fn rejects_alias_header() {
++    let error = validate(ALIAS_HEADER).unwrap_err();
++    assert_eq!(error, Error::AliasRejected);
++}
++

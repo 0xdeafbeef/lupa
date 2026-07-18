@@ -5,6 +5,8 @@ use lupa::{Language, SymbolKind};
 
 const DIGEST_FIXTURE: &str = "tests/fixtures/digest_tree";
 const EXTENSIONLESS_SHELL_FIXTURE: &str = "tests/fixtures/digest_tree/visible-script";
+const EXTENSIONLESS_DIFF_FIXTURE: &str = "tests/fixtures/digest_tree/security-change";
+const EXTENSIONLESS_INI_FIXTURE: &str = "tests/fixtures/digest_tree/settings-file";
 const NO_SHEBANG_SHELL_FIXTURE: &str = "tests/fixtures/digest_tree/shell-fragment";
 const UNKNOWN_SUFFIX_SHELL_FIXTURE: &str = "tests/fixtures/digest_tree/shell-script.unknown";
 const FALLBACK_BASH_FIXTURE: &str = "tests/fixtures/fallback/script.bash";
@@ -20,11 +22,15 @@ const CC_FIXTURE: &str = "tests/fixtures/source_shapes.cc";
 const CPP_FIXTURE: &str = "tests/fixtures/source_shapes.cpp";
 const CXX_FIXTURE: &str = "tests/fixtures/source_shapes.cxx";
 const GO_FIXTURE: &str = "tests/fixtures/source_shapes.go";
+const DIFF_FIXTURE: &str = "tests/fixtures/source_shapes.diff";
+const GITCONFIG_FIXTURE: &str = "tests/fixtures/.gitconfig";
+const GITMODULES_FIXTURE: &str = "tests/fixtures/.gitmodules";
 const H_FIXTURE: &str = "tests/fixtures/source_shapes.h";
 const HH_FIXTURE: &str = "tests/fixtures/source_shapes.hh";
 const HPP_FIXTURE: &str = "tests/fixtures/source_shapes.hpp";
 const HXX_FIXTURE: &str = "tests/fixtures/source_shapes.hxx";
 const JS_FIXTURE: &str = "tests/fixtures/source_shapes.js";
+const INI_FIXTURE: &str = "tests/fixtures/source_shapes.ini";
 const JSON_FIXTURE: &str = "tests/fixtures/source_shapes.json";
 const JUST_FIXTURE: &str = "tests/fixtures/justfile";
 const JSX_FIXTURE: &str = "tests/fixtures/source_shapes.jsx";
@@ -50,9 +56,11 @@ const EXPECTED_STRESS_LANGUAGES: &[Language] = &[
     Language::Cmake,
     Language::Cpp,
     Language::Css,
+    Language::Diff,
     Language::Dockerfile,
     Language::Fish,
     Language::Go,
+    Language::Ini,
     Language::JavaScript,
     Language::Json,
     Language::Jsonc,
@@ -173,6 +181,27 @@ const STRESS_FIXTURES: &[StressFixture] = &[
         show_cases: &[],
     },
     StressFixture {
+        language: Language::Diff,
+        fixture: "tests/fixtures/stress/security.patch",
+        syntax_only: false,
+        map_needles: &[
+            " src/check.rs diff --git a/src/check.rs b/src/check.rs",
+            " src/check.rs.hunk @@ -8,6 +8,10 @@",
+            " tests/check.rs diff --git a/tests/check.rs b/tests/check.rs",
+            " tests/check.rs.hunk @@ -0,0 +1,6 @@",
+        ],
+        absent_map_needles: &[" addition ", " deletion "],
+        show_cases: &[ShowCase {
+            keys: &["src/check.rs.hunk", "tests/check.rs.hunk"],
+            needles: &[
+                "# src/check.rs.hunk@",
+                "return Err(Error::AliasRejected);",
+                "# tests/check.rs.hunk@",
+                "fn rejects_alias_header()",
+            ],
+        }],
+    },
+    StressFixture {
         language: Language::Dockerfile,
         fixture: "tests/fixtures/stress/Dockerfile",
         syntax_only: true,
@@ -217,6 +246,29 @@ const STRESS_FIXTURES: &[StressFixture] = &[
                 "func (c *Cache[T]) Get(ctx context.Context, key string) (T, error) {\n",
                 "# wrapLoader@",
                 "return func(ctx context.Context, key string) (T, error) {\n",
+            ],
+        }],
+    },
+    StressFixture {
+        language: Language::Ini,
+        fixture: "tests/fixtures/stress/source.ini",
+        syntax_only: false,
+        map_needles: &[
+            " root_timeout root_timeout = 30",
+            " server [server]",
+            " server.workers workers = 4",
+            " database \"primary\".pool_size pool_size = 16",
+            " remote \"origin\"#2 [remote \"origin\"]",
+            " remote \"origin\"#2.url url = ssh://git.example/mirror.git",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[ShowCase {
+            keys: &["server", "remote \"origin\"#2"],
+            needles: &[
+                "# server@",
+                "workers = 4",
+                "# remote \"origin\"#2@",
+                "url = ssh://git.example/mirror.git",
             ],
         }],
     },
@@ -931,6 +983,72 @@ fn language_detects_jsonc_extension() {
 }
 
 #[test]
+fn language_detects_ini_and_diff_paths_and_tokens() {
+    for path in ["settings.ini", ".gitconfig", ".gitmodules"] {
+        assert_eq!(Language::from_path(Path::new(path)), Some(Language::Ini));
+    }
+    for path in ["security.patch", "changes.diff"] {
+        assert_eq!(Language::from_path(Path::new(path)), Some(Language::Diff));
+    }
+    assert_eq!(Language::from_token("ini"), Some(Language::Ini));
+    assert_eq!(Language::from_token("diff"), Some(Language::Diff));
+    assert_eq!(Language::from_path(Path::new("config")), None);
+    assert_eq!(Language::from_path(Path::new("settings.cfg")), None);
+}
+
+#[test]
+fn ini_and_diff_paths_dispatch_semantic_adapters() {
+    for fixture in [INI_FIXTURE, GITCONFIG_FIXTURE, GITMODULES_FIXTURE] {
+        let stdout = run_lupa(&["map", fixture]);
+        assert_stdout_contains(&stdout, &format!("# {fixture} [ini] "));
+        assert_stdout_lacks(&stdout, "parse error");
+        assert_stdout_lacks(&stdout, "syntax-only adapter");
+    }
+
+    for fixture in [DIFF_FIXTURE, "tests/fixtures/stress/security.patch"] {
+        let stdout = run_lupa(&["map", fixture]);
+        assert_stdout_contains(&stdout, &format!("# {fixture} [diff] "));
+        assert_stdout_lacks(&stdout, "parse error");
+        assert_stdout_lacks(&stdout, "syntax-only adapter");
+    }
+
+    let ini = run_lupa_stdin(&["map", "ini"], include_str!("fixtures/source_shapes.ini"));
+    assert_stdout_contains(&ini, "# - [ini] ");
+    assert_stdout_contains(&ini, " remote \"origin\"#2.url ");
+
+    let diff = run_lupa_stdin(
+        &["map", "diff"],
+        include_str!("fixtures/source_shapes.diff"),
+    );
+    assert_stdout_contains(&diff, "# - [diff] ");
+    assert_stdout_contains(&diff, " src/lib.rs.hunk#2 ");
+}
+
+#[test]
+fn magika_detects_extensionless_ini_and_diff() {
+    let ini = run_lupa(&["map", EXTENSIONLESS_INI_FIXTURE]);
+    assert_stdout_contains(&ini, "# tests/fixtures/digest_tree/settings-file [ini] ");
+    assert_stdout_contains(&ini, " database.host ");
+    assert_stdout_lacks(&ini, "parse error");
+
+    let diff = run_lupa(&["map", EXTENSIONLESS_DIFF_FIXTURE]);
+    assert_stdout_contains(
+        &diff,
+        "# tests/fixtures/digest_tree/security-change [diff] ",
+    );
+    assert_stdout_contains(&diff, " src/access.rs.hunk ");
+    assert_stdout_lacks(&diff, "parse error");
+}
+
+#[test]
+fn malformed_ini_prints_a_parse_warning() {
+    let stdout = run_lupa_stdin(&["map", "ini"], "[server\nport = 8080\n");
+
+    assert_stdout_contains(&stdout, "# - [ini] ");
+    assert_stdout_contains(&stdout, "# warning: parse error at L1:");
+}
+
+#[test]
 fn json_and_jsonc_use_comment_capable_parser() {
     let source = "{\n  // service config\n  \"service\": {\n    \"name\": \"api\",\n  },\n}\n";
 
@@ -1480,11 +1598,15 @@ fn digest_includes_polyglot_source_extensions() {
         "tests/fixtures/digest_tree/visible.bash",
         "tests/fixtures/digest_tree/visible.cmake",
         "tests/fixtures/digest_tree/visible.css",
+        "tests/fixtures/digest_tree/visible.ini",
+        "tests/fixtures/digest_tree/visible.patch",
         "tests/fixtures/digest_tree/visible.dockerfile",
         "tests/fixtures/digest_tree/visible.fish",
         "tests/fixtures/digest_tree/visible.lua",
         "tests/fixtures/digest_tree/visible.nginx",
         "tests/fixtures/digest_tree/visible.proto",
+        "tests/fixtures/digest_tree/settings-file",
+        "tests/fixtures/digest_tree/security-change",
     ] {
         assert_stdout_contains(&stdout, path);
     }
@@ -1493,6 +1615,8 @@ fn digest_includes_polyglot_source_extensions() {
     assert_stdout_contains(&stdout, "visible.kts [kotlin]");
     assert_stdout_contains(&stdout, "visible.proto [proto]");
     assert_stdout_contains(&stdout, "visible.svelte [svelte]");
+    assert_stdout_contains(&stdout, "settings-file [ini]");
+    assert_stdout_contains(&stdout, "security-change [diff]");
     assert_stdout_contains(&stdout, "syntax-only");
 }
 

@@ -44,6 +44,39 @@ fn parse_json_with_language(path: &Path, language: Language, source: String) -> 
     file_map(path, language, source, symbols, Vec::new())
 }
 
+pub fn parse_ini(path: &Path, source: String) -> FileMap {
+    let mut parser = Parser::new();
+    let mut parse_errors = Vec::new();
+    let Some(language) = grammars::language(Language::Ini) else {
+        parse_errors.push(ParseError {
+            line: 1,
+            message: "failed to load INI grammar".to_owned(),
+        });
+        return file_map(path, Language::Ini, source, Vec::new(), parse_errors);
+    };
+
+    if let Err(err) = parser.set_language(&language) {
+        parse_errors.push(ParseError {
+            line: 1,
+            message: format!("failed to load INI grammar: {err}"),
+        });
+        return file_map(path, Language::Ini, source, Vec::new(), parse_errors);
+    }
+
+    let Some(tree) = parser.parse(&source, None) else {
+        parse_errors.push(ParseError {
+            line: 1,
+            message: "tree-sitter returned no parse tree".to_owned(),
+        });
+        return file_map(path, Language::Ini, source, Vec::new(), parse_errors);
+    };
+
+    let root = tree.root_node();
+    collect_parse_errors(root, &mut parse_errors);
+    let symbols = Collector::new(&source).collect_ini(root);
+    file_map(path, Language::Ini, source, symbols, parse_errors)
+}
+
 pub fn parse_toml(path: &Path, source: String) -> FileMap {
     let mut parser = Parser::new();
     let mut parse_errors = Vec::new();
@@ -155,6 +188,72 @@ impl<'a> Collector<'a> {
         let mut symbols = Vec::new();
         self.collect_json_value(value, None, &mut symbols);
         symbols
+    }
+
+    fn collect_ini(&mut self, root: Node<'_>) -> Vec<Symbol> {
+        let mut symbols = Vec::new();
+        let mut cursor = root.walk();
+        for child in root.named_children(&mut cursor) {
+            match child.kind() {
+                "section" => self.push_ini_section(child, &mut symbols),
+                "setting" => self.push_ini_setting(child, None, &mut symbols),
+                _ => {}
+            }
+        }
+        symbols
+    }
+
+    fn push_ini_section(&mut self, node: Node<'_>, symbols: &mut Vec<Symbol>) {
+        let Some(name_node) = named_child_of_kind(node, "section_name") else {
+            return;
+        };
+        let Some(name) = self.ini_name(name_node) else {
+            return;
+        };
+
+        let key = self.unique_key(name.clone());
+        let mut symbol = Symbol::new(
+            key.clone(),
+            SymbolKind::Heading,
+            name,
+            self.signature(node),
+            boundary_line_span(node),
+        );
+
+        let mut cursor = node.walk();
+        for child in node.named_children(&mut cursor) {
+            if child.kind() == "setting" {
+                self.push_ini_setting(child, Some(key.as_str()), &mut symbol.children);
+            }
+        }
+
+        symbols.push(symbol);
+    }
+
+    fn push_ini_setting(
+        &mut self,
+        node: Node<'_>,
+        parent_key: Option<&str>,
+        symbols: &mut Vec<Symbol>,
+    ) {
+        let Some(name_node) = named_child_of_kind(node, "setting_name") else {
+            return;
+        };
+        let Some(name) = self.node_text(name_node).map(str::trim).map(str::to_owned) else {
+            return;
+        };
+
+        let key = parent_key.map_or_else(|| name.clone(), |parent| format!("{parent}.{name}"));
+        let key = self.unique_key(key);
+        let mut symbol = Symbol::new(
+            key,
+            SymbolKind::Field,
+            name,
+            self.signature(node),
+            boundary_line_span(node),
+        );
+        symbol.parent_key = parent_key.map(str::to_owned);
+        symbols.push(symbol);
     }
 
     fn collect_json_value(
@@ -392,6 +491,13 @@ impl<'a> Collector<'a> {
         }
     }
 
+    fn ini_name(&self, node: Node<'_>) -> Option<String> {
+        named_child_of_kind(node, "text")
+            .and_then(|child| self.node_text(child))
+            .map(str::trim)
+            .map(str::to_owned)
+    }
+
     fn unique_key(&mut self, key: String) -> String {
         let count = self.key_counts.entry(key.clone()).or_insert(0);
         *count += 1;
@@ -425,6 +531,14 @@ fn first_key_child(node: Node<'_>) -> Option<Node<'_>> {
         .named_children(&mut cursor)
         .find(|child| is_key_child(*child));
     key
+}
+
+fn named_child_of_kind<'a>(node: Node<'a>, kind: &str) -> Option<Node<'a>> {
+    let mut cursor = node.walk();
+    let child = node
+        .named_children(&mut cursor)
+        .find(|child| child.kind() == kind);
+    child
 }
 
 fn value_after_key<'a>(node: Node<'a>, key_node: Node<'a>) -> Option<Node<'a>> {
@@ -471,6 +585,16 @@ fn strip_quotes(text: &str) -> String {
 
 fn line_span(node: Node<'_>) -> LineSpan {
     LineSpan::new(node.start_position().row + 1, node.end_position().row + 1)
+}
+
+fn boundary_line_span(node: Node<'_>) -> LineSpan {
+    let start_line = node.start_position().row + 1;
+    let end_position = node.end_position();
+    let mut end_line = end_position.row + 1;
+    if end_position.column == 0 && end_line > start_line {
+        end_line -= 1;
+    }
+    LineSpan::new(start_line, end_line)
 }
 
 fn json_line_span(source: &str, range: JsonRange) -> LineSpan {

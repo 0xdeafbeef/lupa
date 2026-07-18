@@ -1,5 +1,6 @@
 pub mod c_family;
 pub mod config;
+pub mod diff;
 pub mod go;
 pub mod javascript;
 pub mod just;
@@ -27,7 +28,9 @@ pub fn parse_source(path: &Path, language: Language, source: String) -> Result<F
         | Language::Nginx
         | Language::Proto => Ok(syntax_nodes::parse(path, language, source)),
         Language::C | Language::Cpp => Ok(c_family::parse(path, language, source)),
+        Language::Diff => Ok(diff::parse(path, source)),
         Language::Go => Ok(go::parse(path, source)),
+        Language::Ini => Ok(config::parse_ini(path, source)),
         Language::JavaScript | Language::Jsx | Language::Tsx | Language::TypeScript => {
             Ok(javascript::parse(path, language, source))
         }

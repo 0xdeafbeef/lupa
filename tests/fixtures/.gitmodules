@@ -1,0 +1,3 @@
+[submodule "vendor/parser"]
+path = vendor/parser
+url = https://example.com/parser.git

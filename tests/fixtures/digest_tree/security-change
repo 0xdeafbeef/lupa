@@ -1,0 +1,11 @@
+diff --git a/src/access.rs b/src/access.rs
+index 1234567..89abcde 100644
+--- a/src/access.rs
++++ b/src/access.rs
+@@ -4,3 +4,6 @@ pub fn authorize(user: &User) -> Result<()> {
+-    Ok(())
++    if !user.is_active() {
++        return Err(Error::Inactive);
++    }
++    Ok(())
+ }
