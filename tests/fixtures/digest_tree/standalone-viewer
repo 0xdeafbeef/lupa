@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en">
+<head><title>Standalone viewer</title></head>
+<body>
+  <main>
+    <h1>Audit dashboard</h1>
+    <section data-screen-label="Findings"><p>Review the findings.</p></section>
+  </main>
+  <script>window.ready = true;</script>
+</body>
+</html>

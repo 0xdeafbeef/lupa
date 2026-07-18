@@ -1,0 +1,43 @@
+<!doctype html>
+<HTML lang="en">
+<HEAD>
+  <TITLE>Audit viewer</TITLE>
+  <STYLE>
+    main { display: grid; }
+  </STYLE>
+</HEAD>
+<BODY>
+  <header ARIA-LABEL="Audit controls">
+    <nav ID="primary-nav"><a href="#findings">Findings</a></nav>
+  </header>
+  <main>
+    <h1>Repository audit</h1>
+    <div class="layout">
+      <SECTION DATA-SCREEN-LABEL="Findings" aria-label="Ignored label" id="ignored-id">
+        <h2>Attribute precedence is visible</h2>
+        <article aria-label="Critical finding">
+          <h3>Ignored article heading</h3>
+          <p>Open the source around this finding.</p>
+        </article>
+        <section id="details"><h2>Ignored details heading</h2></section>
+        <section>
+          <div><h2>Evidence</h2></div>
+          <h3>Trace</h3>
+        </section>
+        <section><p>Fallback section</p></section>
+      </SECTION>
+      <section aria-label="Alpha">
+        <article><h2>Summary</h2></article>
+        <article><h2>Summary</h2></article>
+      </section>
+      <section aria-label="Beta"><article><h2>Summary</h2></article></section>
+      <section aria-label="{{ dynamic_label }}" id="static-id">
+        <h2>{{ dynamic_heading }}</h2>
+      </section>
+    </div>
+  </main>
+  <footer>Generated locally</footer>
+  <script src="viewer.js"></script>
+  <script>window.viewerReady = true;</script>
+</BODY>
+</HTML>

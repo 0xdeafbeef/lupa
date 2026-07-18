@@ -6,6 +6,7 @@ use lupa::{Language, SymbolKind};
 const DIGEST_FIXTURE: &str = "tests/fixtures/digest_tree";
 const EXTENSIONLESS_SHELL_FIXTURE: &str = "tests/fixtures/digest_tree/visible-script";
 const EXTENSIONLESS_DIFF_FIXTURE: &str = "tests/fixtures/digest_tree/security-change";
+const EXTENSIONLESS_HTML_FIXTURE: &str = "tests/fixtures/digest_tree/standalone-viewer";
 const EXTENSIONLESS_INI_FIXTURE: &str = "tests/fixtures/digest_tree/settings-file";
 const NO_SHEBANG_SHELL_FIXTURE: &str = "tests/fixtures/digest_tree/shell-fragment";
 const UNKNOWN_SUFFIX_SHELL_FIXTURE: &str = "tests/fixtures/digest_tree/shell-script.unknown";
@@ -22,6 +23,7 @@ const CC_FIXTURE: &str = "tests/fixtures/source_shapes.cc";
 const CPP_FIXTURE: &str = "tests/fixtures/source_shapes.cpp";
 const CXX_FIXTURE: &str = "tests/fixtures/source_shapes.cxx";
 const GO_FIXTURE: &str = "tests/fixtures/source_shapes.go";
+const HTML_FIXTURE: &str = "tests/fixtures/source_shapes.html";
 const DIFF_FIXTURE: &str = "tests/fixtures/source_shapes.diff";
 const GITCONFIG_FIXTURE: &str = "tests/fixtures/.gitconfig";
 const GITMODULES_FIXTURE: &str = "tests/fixtures/.gitmodules";
@@ -60,6 +62,7 @@ const EXPECTED_STRESS_LANGUAGES: &[Language] = &[
     Language::Dockerfile,
     Language::Fish,
     Language::Go,
+    Language::Html,
     Language::Ini,
     Language::JavaScript,
     Language::Json,
@@ -246,6 +249,33 @@ const STRESS_FIXTURES: &[StressFixture] = &[
                 "func (c *Cache[T]) Get(ctx context.Context, key string) (T, error) {\n",
                 "# wrapLoader@",
                 "return func(ctx context.Context, key string) (T, error) {\n",
+            ],
+        }],
+    },
+    StressFixture {
+        language: Language::Html,
+        fixture: "tests/fixtures/stress/source.html",
+        syntax_only: false,
+        map_needles: &[
+            " title <title>Taskbox current contract</title>",
+            " style <style>",
+            " Taskbox current product and frontend contract <main>",
+            " Taskbox current product and frontend contract.Current source of truth <section class=\"card current\">",
+            " Taskbox current product and frontend contract.Current supporting contracts <section class=\"card\">",
+            " Taskbox current product and frontend contract.Historical artifacts <section class=\"card archive\" role=\"note\">",
+        ],
+        absent_map_needles: &[" <meta", " <p", " <h1", " <h2"],
+        show_cases: &[ShowCase {
+            keys: &[
+                "Taskbox current product and frontend contract",
+                "Taskbox current product and frontend contract.Current source of truth",
+            ],
+            needles: &[
+                "# Taskbox current product and frontend contract@",
+                "<main>\n",
+                "# Taskbox current product and frontend contract.Current source of truth@",
+                "<section class=\"card current\">\n",
+                "Use the current application routes and API contracts.",
             ],
         }],
     },
@@ -983,6 +1013,56 @@ fn language_detects_jsonc_extension() {
 }
 
 #[test]
+fn language_detects_html_paths_and_token() {
+    for path in ["index.html", "archive.HTM"] {
+        assert_eq!(Language::from_path(Path::new(path)), Some(Language::Html));
+    }
+    assert_eq!(Language::from_token("html"), Some(Language::Html));
+}
+
+#[test]
+fn html_works_across_direct_commands_and_stdin() {
+    let map = run_lupa(&["map", HTML_FIXTURE]);
+    assert_stdout_contains(&map, &format!("# {HTML_FIXTURE} [html] "));
+    assert_stdout_contains(&map, " Repository audit.Findings ");
+    assert_stdout_lacks(&map, "parse error");
+    assert_stdout_lacks(&map, " <div");
+
+    let keys = run_lupa(&["keys", HTML_FIXTURE]);
+    assert_stdout_contains(&keys, "Repository audit.Findings L16-L28\n");
+
+    let show = run_lupa(&[
+        "show",
+        HTML_FIXTURE,
+        "Repository audit.Findings.Critical finding",
+    ]);
+    assert_stdout_contains(
+        &show,
+        "# Repository audit.Findings.Critical finding@L18-L21\n",
+    );
+    assert_stdout_contains(&show, "<article aria-label=\"Critical finding\">\n");
+
+    let digest = run_lupa(&["digest", HTML_FIXTURE]);
+    assert_stdout_contains(&digest, &format!("{HTML_FIXTURE} [html] 43L "));
+
+    let hit = format!("{HTML_FIXTURE}:20");
+    let context = run_lupa(&["context", hit.as_str()]);
+    assert_stdout_contains(
+        &context,
+        &format!(
+            "{HTML_FIXTURE} Repository audit.Findings.Critical finding@L18-L21 hits L20 <article aria-label=\"Critical finding\">"
+        ),
+    );
+
+    let stdin = run_lupa_stdin(
+        &["map", "html"],
+        include_str!("fixtures/stress/source.html"),
+    );
+    assert_stdout_contains(&stdin, "# - [html] 33L ");
+    assert_stdout_contains(&stdin, " 6S\n");
+}
+
+#[test]
 fn language_detects_ini_and_diff_paths_and_tokens() {
     for path in ["settings.ini", ".gitconfig", ".gitmodules"] {
         assert_eq!(Language::from_path(Path::new(path)), Some(Language::Ini));
@@ -1025,7 +1105,7 @@ fn ini_and_diff_paths_dispatch_semantic_adapters() {
 }
 
 #[test]
-fn magika_detects_extensionless_ini_and_diff() {
+fn magika_detects_extensionless_ini_diff_and_html() {
     let ini = run_lupa(&["map", EXTENSIONLESS_INI_FIXTURE]);
     assert_stdout_contains(&ini, "# tests/fixtures/digest_tree/settings-file [ini] ");
     assert_stdout_contains(&ini, " database.host ");
@@ -1038,6 +1118,17 @@ fn magika_detects_extensionless_ini_and_diff() {
     );
     assert_stdout_contains(&diff, " src/access.rs.hunk ");
     assert_stdout_lacks(&diff, "parse error");
+
+    let html = run_lupa(&["map", EXTENSIONLESS_HTML_FIXTURE]);
+    assert_stdout_contains(
+        &html,
+        "# tests/fixtures/digest_tree/standalone-viewer [html] ",
+    );
+    assert_stdout_contains(&html, " Audit dashboard.Findings ");
+    assert_stdout_lacks(&html, "parse error");
+
+    let digest = run_lupa(&["digest", EXTENSIONLESS_HTML_FIXTURE]);
+    assert_stdout_contains(&digest, "standalone-viewer [html] 11L 4S");
 }
 
 #[test]
@@ -1571,6 +1662,7 @@ fn digest_includes_polyglot_source_extensions() {
         "tests/fixtures/digest_tree/visible.cpp",
         "tests/fixtures/digest_tree/visible.cxx",
         "tests/fixtures/digest_tree/visible.go",
+        "tests/fixtures/digest_tree/visible.html",
         "tests/fixtures/digest_tree/visible.h",
         "tests/fixtures/digest_tree/visible.hh",
         "tests/fixtures/digest_tree/visible.hpp",
@@ -1607,6 +1699,7 @@ fn digest_includes_polyglot_source_extensions() {
         "tests/fixtures/digest_tree/visible.proto",
         "tests/fixtures/digest_tree/settings-file",
         "tests/fixtures/digest_tree/security-change",
+        "tests/fixtures/digest_tree/standalone-viewer",
     ] {
         assert_stdout_contains(&stdout, path);
     }
@@ -1614,9 +1707,11 @@ fn digest_includes_polyglot_source_extensions() {
     assert_stdout_contains(&stdout, "visible.kt [kotlin]");
     assert_stdout_contains(&stdout, "visible.kts [kotlin]");
     assert_stdout_contains(&stdout, "visible.proto [proto]");
+    assert_stdout_contains(&stdout, "visible.html [html]");
     assert_stdout_contains(&stdout, "visible.svelte [svelte]");
     assert_stdout_contains(&stdout, "settings-file [ini]");
     assert_stdout_contains(&stdout, "security-change [diff]");
+    assert_stdout_contains(&stdout, "standalone-viewer [html]");
     assert_stdout_contains(&stdout, "syntax-only");
 }
 

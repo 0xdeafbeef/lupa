@@ -30,6 +30,7 @@ pub fn parse_source(path: &Path, language: Language, source: String) -> Result<F
         Language::C | Language::Cpp => Ok(c_family::parse(path, language, source)),
         Language::Diff => Ok(diff::parse(path, source)),
         Language::Go => Ok(go::parse(path, source)),
+        Language::Html => Ok(svelte::parse_html(path, source)),
         Language::Ini => Ok(config::parse_ini(path, source)),
         Language::JavaScript | Language::Jsx | Language::Tsx | Language::TypeScript => {
             Ok(javascript::parse(path, language, source))
