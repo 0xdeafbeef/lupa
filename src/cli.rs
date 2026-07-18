@@ -6,6 +6,7 @@ use clap::error::ErrorKind;
 use clap::{Parser, Subcommand};
 use lupa::{context, parse_source, render, FileMap, Language};
 
+use crate::detect::LanguageDetector;
 use crate::walk;
 
 #[derive(Debug, Parser)]
@@ -95,19 +96,20 @@ fn map(paths: Vec<PathBuf>) -> Result<String, String> {
         return Ok("# error: stdin language mode accepts exactly one language token\n".to_owned());
     }
 
+    let mut detector = LanguageDetector::default();
     for path in paths {
         if !path.exists() {
             out.push_str(&format!("# error: path not found: {}\n", path.display()));
             continue;
         }
         if path.is_file() {
-            match parse_file(&path) {
+            match parse_file(&path, &mut detector) {
                 Ok(file) => render::render_map(&file, &mut out).map_err(render_error)?,
                 Err(err) => push_error(&mut out, &err),
             }
         } else {
-            for file_path in walk::collect_supported_files(&[path]) {
-                match parse_file(&file_path) {
+            for file_path in walk::collect_supported_files(&[path], &mut detector) {
+                match parse_file(&file_path, &mut detector) {
                     Ok(file) => render::render_map(&file, &mut out).map_err(render_error)?,
                     Err(err) => push_error(&mut out, &err),
                 }
@@ -127,7 +129,8 @@ fn show(file: PathBuf, keys: Vec<String>) -> Result<String, String> {
     if !file.exists() {
         return Ok(format!("# error: path not found: {}\n", file.display()));
     }
-    match parse_file(&file) {
+    let mut detector = LanguageDetector::default();
+    match parse_file(&file, &mut detector) {
         Ok(file) => {
             let mut out = String::new();
             render::render_show(&file, &keys, &mut out).map_err(render_error)?;
@@ -140,19 +143,20 @@ fn show(file: PathBuf, keys: Vec<String>) -> Result<String, String> {
 fn digest(paths: Vec<PathBuf>) -> Result<String, String> {
     let mut out = String::new();
     let mut files = Vec::new();
+    let mut detector = LanguageDetector::default();
     for path in paths {
         if !path.exists() {
             out.push_str(&format!("# error: path not found: {}\n", path.display()));
             continue;
         }
         if path.is_file() {
-            match parse_file(&path) {
+            match parse_file(&path, &mut detector) {
                 Ok(file) => files.push(file),
                 Err(err) => push_error(&mut out, &err),
             }
         } else {
-            for file_path in walk::collect_supported_files(&[path]) {
-                match parse_file(&file_path) {
+            for file_path in walk::collect_supported_files(&[path], &mut detector) {
+                match parse_file(&file_path, &mut detector) {
                     Ok(file) => files.push(file),
                     Err(err) => push_error(&mut out, &err),
                 }
@@ -173,7 +177,8 @@ fn keys(file: PathBuf) -> Result<String, String> {
     if !file.exists() {
         return Ok(format!("# error: path not found: {}\n", file.display()));
     }
-    match parse_file(&file) {
+    let mut detector = LanguageDetector::default();
+    match parse_file(&file, &mut detector) {
         Ok(file) => {
             let mut out = String::new();
             render::render_keys(&file, &mut out).map_err(render_error)?;
@@ -219,12 +224,13 @@ fn context(inputs: Vec<String>) -> Result<String, String> {
         }
     }
 
+    let mut detector = LanguageDetector::default();
     for (path, lines) in groups {
         if !path.exists() {
             out.push_str(&format!("# error: path not found: {}\n", path.display()));
             continue;
         }
-        match parse_file(&path) {
+        match parse_file(&path, &mut detector) {
             Ok(file) => {
                 context::render_context(&file, &lines, &mut out).map_err(render_error)?;
             }
@@ -252,11 +258,27 @@ fn stdin_file_for_language_arg(path: &Path) -> Result<Option<FileMap>, String> {
     parse_source(Path::new("-"), language, source).map(Some)
 }
 
-fn parse_file(path: &Path) -> Result<FileMap, String> {
-    let language = Language::from_path(path)
-        .ok_or_else(|| format!("# error: unsupported file type: {}", path.display()))?;
-    let source = std::fs::read_to_string(path)
-        .map_err(|err| format!("# error: failed to read {}: {err}", path.display()))?;
+fn parse_file(path: &Path, detector: &mut LanguageDetector) -> Result<FileMap, String> {
+    let (language, source) = if let Some(language) = Language::from_path(path) {
+        let source = std::fs::read_to_string(path)
+            .map_err(|err| format!("# error: failed to read {}: {err}", path.display()))?;
+        (language, source)
+    } else {
+        let content = std::fs::read(path)
+            .map_err(|err| format!("# error: failed to read {}: {err}", path.display()))?;
+        let language = detector
+            .detect_content(&content)
+            .map_err(|err| {
+                format!(
+                    "# error: failed to detect file type: {}: {err}",
+                    path.display()
+                )
+            })?
+            .ok_or_else(|| format!("# error: unsupported file type: {}", path.display()))?;
+        let source = String::from_utf8(content)
+            .map_err(|err| format!("# error: failed to read {}: {err}", path.display()))?;
+        (language, source)
+    };
 
     parse_source(path, language, source)
 }

@@ -12,6 +12,8 @@ clap = { version = "4.6.1", features = ["derive"] }
 codebook-tree-sitter-typst = "0.12.1"
 ignore = "0.4.25"
 jsonc-parser = "0.33.0"
+magika = "1.1.0"
+ort = "=2.0.0-rc.12"
 tree-sitter = "0.25.10"
 tree-sitter-bash = "0.25.1"
 tree-sitter-c = "0.24.2"

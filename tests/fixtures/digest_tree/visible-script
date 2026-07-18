@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+run_check() {
+    case "${1:-verify}" in
+        verify)
+            printf '%s\n' "ok"
+            ;;
+        *)
+            return 64
+            ;;
+    esac
+}
+
+run_check "$@"

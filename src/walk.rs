@@ -3,6 +3,8 @@ use std::path::{Path, PathBuf};
 use ignore::WalkBuilder;
 use lupa::Language;
 
+use crate::detect::LanguageDetector;
+
 const DEFAULT_IGNORES: &[&str] = &[
     ".git",
     ".jj",
@@ -17,22 +19,22 @@ const DEFAULT_IGNORES: &[&str] = &[
     "__pycache__",
 ];
 
-pub fn collect_supported_files(paths: &[PathBuf]) -> Vec<PathBuf> {
+pub fn collect_supported_files(paths: &[PathBuf], detector: &mut LanguageDetector) -> Vec<PathBuf> {
     let mut files = Vec::new();
     for path in paths {
         if path.is_file() {
-            if Language::from_path(path).is_some() {
+            if is_supported_file(path, detector) {
                 files.push(path.clone());
             }
         } else if path.is_dir() {
-            collect_dir(path, &mut files);
+            collect_dir(path, detector, &mut files);
         }
     }
     files.sort();
     files
 }
 
-fn collect_dir(path: &Path, out: &mut Vec<PathBuf>) {
+fn collect_dir(path: &Path, detector: &mut LanguageDetector, out: &mut Vec<PathBuf>) {
     for entry in WalkBuilder::new(path)
         .hidden(false)
         .build()
@@ -42,10 +44,17 @@ fn collect_dir(path: &Path, out: &mut Vec<PathBuf>) {
         if should_skip(entry_path) {
             continue;
         }
-        if entry_path.is_file() && Language::from_path(entry_path).is_some() {
+        if entry_path.is_file() && is_supported_file(entry_path, detector) {
             out.push(entry_path.to_path_buf());
         }
     }
+}
+
+fn is_supported_file(path: &Path, detector: &mut LanguageDetector) -> bool {
+    if Language::from_path(path).is_some() {
+        return true;
+    }
+    detector.detect_file(path).ok().flatten().is_some()
 }
 
 fn should_skip(path: &Path) -> bool {

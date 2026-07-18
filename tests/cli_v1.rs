@@ -4,6 +4,9 @@ use assert_cmd::Command;
 use lupa::{Language, SymbolKind};
 
 const DIGEST_FIXTURE: &str = "tests/fixtures/digest_tree";
+const EXTENSIONLESS_SHELL_FIXTURE: &str = "tests/fixtures/digest_tree/visible-script";
+const NO_SHEBANG_SHELL_FIXTURE: &str = "tests/fixtures/digest_tree/shell-fragment";
+const UNKNOWN_SUFFIX_SHELL_FIXTURE: &str = "tests/fixtures/digest_tree/shell-script.unknown";
 const FALLBACK_BASH_FIXTURE: &str = "tests/fixtures/fallback/script.bash";
 const FALLBACK_CMAKE_FIXTURE: &str = "tests/fixtures/fallback/CMakeLists.txt";
 const FALLBACK_CSS_FIXTURE: &str = "tests/fixtures/fallback/stylesheet.css";
@@ -675,6 +678,63 @@ fn direct_file_invocation_aliases_to_map() {
         "# tests/fixtures/rust_symbols.rs [rust] 25L 299B 9S\n",
     );
     assert_stdout_contains(&stdout, " Alpha.new ");
+}
+
+#[test]
+fn extensionless_shell_script_works_across_direct_commands() {
+    let stdout = run_lupa(&[EXTENSIONLESS_SHELL_FIXTURE]);
+    assert_stdout_contains(&stdout, &format!("# {EXTENSIONLESS_SHELL_FIXTURE} [bash] "));
+    assert_stdout_contains(&stdout, " function_definition run_check() {");
+    assert_stdout_lacks(&stdout, "parse error");
+
+    let stdout = run_lupa(&["keys", EXTENSIONLESS_SHELL_FIXTURE]);
+    assert_stdout_contains(&stdout, "function_definition L4-L13\n");
+
+    let stdout = run_lupa(&["show", EXTENSIONLESS_SHELL_FIXTURE, "function_definition"]);
+    assert_stdout_contains(&stdout, "# function_definition@L4-L13\n");
+    assert_stdout_contains(&stdout, "run_check() {\n");
+
+    let stdout = run_lupa(&["digest", EXTENSIONLESS_SHELL_FIXTURE]);
+    assert_stdout_contains(
+        &stdout,
+        &format!("{EXTENSIONLESS_SHELL_FIXTURE} [bash] 15L 3S syntax-only"),
+    );
+
+    let hit = format!("{EXTENSIONLESS_SHELL_FIXTURE}:6");
+    let stdout = run_lupa(&["context", hit.as_str()]);
+    assert_stdout_contains(
+        &stdout,
+        &format!("{EXTENSIONLESS_SHELL_FIXTURE} function_definition@L4-L13 hits L6 run_check()"),
+    );
+}
+
+#[test]
+fn magika_detects_shell_without_shebang_or_known_suffix() {
+    for fixture in [NO_SHEBANG_SHELL_FIXTURE, UNKNOWN_SUFFIX_SHELL_FIXTURE] {
+        let stdout = run_lupa(&[fixture]);
+        assert_stdout_contains(&stdout, &format!("# {fixture} [bash] "));
+        assert_stdout_contains(&stdout, " function_definition cleanup() {");
+        assert_stdout_lacks(&stdout, "parse error");
+    }
+}
+
+#[test]
+fn directory_discovery_includes_only_supported_inferred_files() {
+    let stdout = run_lupa(&["map", DIGEST_FIXTURE]);
+    for fixture in [
+        EXTENSIONLESS_SHELL_FIXTURE,
+        NO_SHEBANG_SHELL_FIXTURE,
+        UNKNOWN_SUFFIX_SHELL_FIXTURE,
+    ] {
+        assert_stdout_contains(&stdout, &format!("# {fixture} [bash] "));
+    }
+    assert_stdout_lacks(&stdout, "tests/fixtures/digest_tree/plain-file");
+
+    let stdout = run_lupa(&["map", "tests/fixtures/digest_tree/plain-file"]);
+    assert_eq!(
+        stdout,
+        "# error: unsupported file type: tests/fixtures/digest_tree/plain-file\n"
+    );
 }
 
 #[test]
@@ -1408,6 +1468,9 @@ fn digest_includes_polyglot_source_extensions() {
         "tests/fixtures/digest_tree/visible.nix",
         "tests/fixtures/digest_tree/visible.py",
         "tests/fixtures/digest_tree/visible.svelte",
+        "tests/fixtures/digest_tree/shell-fragment",
+        "tests/fixtures/digest_tree/shell-script.unknown",
+        "tests/fixtures/digest_tree/visible-script",
         "tests/fixtures/digest_tree/visible.ts",
         "tests/fixtures/digest_tree/visible.toml",
         "tests/fixtures/digest_tree/visible.tsx",

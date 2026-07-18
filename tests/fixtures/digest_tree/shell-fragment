@@ -1,0 +1,14 @@
+set -eu
+
+cleanup() {
+    status=$?
+    rm -f "${tmp_file:-}"
+    exit "$status"
+}
+trap cleanup EXIT INT TERM
+
+for manifest in Cargo.toml crates/*/Cargo.toml; do
+    [ -f "$manifest" ] || continue
+    printf '%s\n' "checking $manifest"
+    grep -n '\[dependencies\]' "$manifest" || true
+done

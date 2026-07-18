@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+cleanup() {
+    status=$?
+    rm -f "${report_file:-}"
+    exit "$status"
+}
+trap cleanup EXIT INT TERM
+
+report_file=$(mktemp)
+for source in "$@"; do
+    printf '%s\n' "$source" >>"$report_file"
+done
+sort -u "$report_file"
