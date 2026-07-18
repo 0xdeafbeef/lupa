@@ -1,0 +1,21 @@
+{
+  "service": {
+    // Service metadata may carry comments.
+    "name": "stress",
+    /* plugin declarations */
+    "plugins": [
+      {
+        "name": "auth",
+        "hooks": {
+          "before": ["load", "verify"],
+          "after": ["audit"],
+        },
+      },
+    ],
+  },
+  "matrix": {
+    "include": [
+      { "os": "linux", "features": ["ssl", "simd"] },
+    ],
+  },
+}

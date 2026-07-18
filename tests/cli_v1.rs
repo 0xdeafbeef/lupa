@@ -52,6 +52,7 @@ const EXPECTED_STRESS_LANGUAGES: &[Language] = &[
     Language::Go,
     Language::JavaScript,
     Language::Json,
+    Language::Jsonc,
     Language::Just,
     Language::Jsx,
     Language::Kotlin,
@@ -252,6 +253,27 @@ const STRESS_FIXTURES: &[StressFixture] = &[
         ],
         absent_map_needles: &[],
         show_cases: &[],
+    },
+    StressFixture {
+        language: Language::Jsonc,
+        fixture: "tests/fixtures/stress/source.jsonc",
+        syntax_only: false,
+        map_needles: &[
+            " service ",
+            " service.plugins ",
+            " service.plugins.hooks ",
+            " matrix ",
+            " matrix.include.os ",
+        ],
+        absent_map_needles: &[],
+        show_cases: &[ShowCase {
+            keys: &["service"],
+            needles: &[
+                "# service@",
+                "/* plugin declarations */\n",
+                "\"after\": [\"audit\"],\n",
+            ],
+        }],
     },
     StressFixture {
         language: Language::Just,
@@ -841,6 +863,51 @@ fn language_detects_justfile_names_and_extension() {
 }
 
 #[test]
+fn language_detects_jsonc_extension() {
+    assert_eq!(
+        Language::from_path(Path::new("opencode.jsonc")),
+        Some(Language::Jsonc)
+    );
+}
+
+#[test]
+fn json_and_jsonc_use_comment_capable_parser() {
+    let source = "{\n  // service config\n  \"service\": {\n    \"name\": \"api\",\n  },\n}\n";
+
+    for language in [Language::Json, Language::Jsonc] {
+        let token = language.to_string();
+        let stdout = run_lupa_stdin(&["map", token.as_str()], source);
+
+        assert_stdout_contains(&stdout, &format!("# - [{language}] "));
+        assert_stdout_contains(&stdout, " service ");
+        assert_stdout_contains(&stdout, " service.name ");
+        assert_stdout_lacks(&stdout, "parse error");
+    }
+}
+
+#[test]
+fn json_rejects_multiple_root_values() {
+    let stdout = run_lupa_stdin(&["map", "json"], "{\"first\": 1}\n{\"second\": 2}\n");
+
+    assert_stdout_contains(&stdout, "# - [json] ");
+    assert_stdout_contains(&stdout, " 0S\n");
+    assert_stdout_contains(&stdout, "# warning: parse error at L2:");
+    assert_stdout_lacks(&stdout, " first ");
+    assert_stdout_lacks(&stdout, " second ");
+}
+
+#[test]
+fn jsonc_structural_parse_error_still_warns_without_partial_symbols() {
+    let stdout = run_lupa_stdin(&["map", "jsonc"], "{\n  \"first\": 1,\n  \"broken\":\n}\n");
+
+    assert_stdout_contains(&stdout, "# - [jsonc] ");
+    assert_stdout_contains(&stdout, " 0S\n");
+    assert_stdout_contains(&stdout, "# warning: parse error at L4:");
+    assert_stdout_lacks(&stdout, " first ");
+    assert_stdout_lacks(&stdout, " broken ");
+}
+
+#[test]
 fn language_detects_kotlin_files_and_scripts() {
     for path in ["Main.kt", "build.gradle.kts"] {
         assert_eq!(Language::from_path(Path::new(path)), Some(Language::Kotlin));
@@ -1332,6 +1399,7 @@ fn digest_includes_polyglot_source_extensions() {
         "tests/fixtures/digest_tree/visible.hxx",
         "tests/fixtures/digest_tree/visible.js",
         "tests/fixtures/digest_tree/visible.json",
+        "tests/fixtures/digest_tree/visible.jsonc",
         "tests/fixtures/digest_tree/visible.just",
         "tests/fixtures/digest_tree/visible.jsx",
         "tests/fixtures/digest_tree/visible.kt",

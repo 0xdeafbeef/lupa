@@ -32,6 +32,7 @@ pub fn parse_source(path: &Path, language: Language, source: String) -> Result<F
             Ok(javascript::parse(path, language, source))
         }
         Language::Json => Ok(config::parse_json(path, source)),
+        Language::Jsonc => Ok(config::parse_jsonc(path, source)),
         Language::Just => Ok(just::parse(path, source)),
         Language::Kotlin => Ok(kotlin::parse(path, source)),
         Language::Markdown => Ok(markdown::parse(path, source)),

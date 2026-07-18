@@ -1,42 +1,47 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use jsonc_parser::ast::{ObjectProp, Value as JsonValue};
+use jsonc_parser::common::{Range as JsonRange, Ranged};
+use jsonc_parser::{parse_to_ast, CollectOptions, ParseOptions};
 use tree_sitter::{Node, Parser};
 
 use crate::grammars;
 use crate::model::{FileMap, Language, LineSpan, ParseError, Symbol, SymbolKind};
 
 pub fn parse_json(path: &Path, source: String) -> FileMap {
-    let mut parser = Parser::new();
-    let mut parse_errors = Vec::new();
-    let Some(language) = grammars::language(Language::Json) else {
-        parse_errors.push(ParseError {
-            line: 1,
-            message: "failed to load JSON grammar".to_owned(),
-        });
-        return file_map(path, Language::Json, source, Vec::new(), parse_errors);
+    parse_json_with_language(path, Language::Json, source)
+}
+
+pub fn parse_jsonc(path: &Path, source: String) -> FileMap {
+    parse_json_with_language(path, Language::Jsonc, source)
+}
+
+fn parse_json_with_language(path: &Path, language: Language, source: String) -> FileMap {
+    let parse_options = ParseOptions {
+        allow_comments: true,
+        allow_loose_object_property_names: false,
+        allow_trailing_commas: true,
+        allow_missing_commas: false,
+        allow_single_quoted_strings: false,
+        allow_hexadecimal_numbers: false,
+        allow_unary_plus_numbers: false,
+    };
+    let result = match parse_to_ast(&source, &CollectOptions::default(), &parse_options) {
+        Ok(result) => result,
+        Err(error) => {
+            let parse_errors = vec![ParseError {
+                line: error.line_display(),
+                message: error.kind().to_string(),
+            }];
+            return file_map(path, language, source, Vec::new(), parse_errors);
+        }
     };
 
-    if let Err(err) = parser.set_language(&language) {
-        parse_errors.push(ParseError {
-            line: 1,
-            message: format!("failed to load JSON grammar: {err}"),
-        });
-        return file_map(path, Language::Json, source, Vec::new(), parse_errors);
-    }
-
-    let Some(tree) = parser.parse(&source, None) else {
-        parse_errors.push(ParseError {
-            line: 1,
-            message: "tree-sitter returned no parse tree".to_owned(),
-        });
-        return file_map(path, Language::Json, source, Vec::new(), parse_errors);
-    };
-
-    let root = tree.root_node();
-    collect_parse_errors(root, &mut parse_errors);
-    let symbols = Collector::new(&source).collect_json(root);
-    file_map(path, Language::Json, source, symbols, parse_errors)
+    let symbols = result.value.as_ref().map_or_else(Vec::new, |value| {
+        Collector::new(&source).collect_json(value)
+    });
+    file_map(path, language, source, symbols, Vec::new())
 }
 
 pub fn parse_toml(path: &Path, source: String) -> FileMap {
@@ -146,52 +151,40 @@ impl<'a> Collector<'a> {
         }
     }
 
-    fn collect_json(&mut self, root: Node<'_>) -> Vec<Symbol> {
+    fn collect_json(&mut self, value: &JsonValue<'_>) -> Vec<Symbol> {
         let mut symbols = Vec::new();
-        let mut cursor = root.walk();
-        for child in root.named_children(&mut cursor) {
-            self.collect_json_value(child, None, &mut symbols);
-        }
+        self.collect_json_value(value, None, &mut symbols);
         symbols
     }
 
     fn collect_json_value(
         &mut self,
-        node: Node<'_>,
+        value: &JsonValue<'_>,
         parent_key: Option<&str>,
         symbols: &mut Vec<Symbol>,
     ) {
-        match node.kind() {
-            "object" => {
-                let mut cursor = node.walk();
-                for child in node.named_children(&mut cursor) {
-                    if child.kind() == "pair" {
-                        self.push_json_pair(child, parent_key, symbols);
-                    }
+        match value {
+            JsonValue::Object(object) => {
+                for property in &object.properties {
+                    self.push_json_property(property, parent_key, symbols);
                 }
             }
-            "array" => {
-                let mut cursor = node.walk();
-                for child in node.named_children(&mut cursor) {
-                    self.collect_json_value(child, parent_key, symbols);
+            JsonValue::Array(array) => {
+                for element in &array.elements {
+                    self.collect_json_value(element, parent_key, symbols);
                 }
             }
             _ => {}
         }
     }
 
-    fn push_json_pair(
+    fn push_json_property(
         &mut self,
-        node: Node<'_>,
+        property: &ObjectProp<'_>,
         parent_key: Option<&str>,
         symbols: &mut Vec<Symbol>,
     ) {
-        let Some(key_node) = node.child_by_field_name("key") else {
-            return;
-        };
-        let Some(name) = self.node_text(key_node).map(strip_quotes) else {
-            return;
-        };
+        let name = strip_quotes(property.name.text(self.source));
 
         let key = parent_key.map_or_else(|| name.clone(), |parent| format!("{parent}.{name}"));
         let key = self.unique_key(key);
@@ -199,14 +192,12 @@ impl<'a> Collector<'a> {
             key.clone(),
             SymbolKind::Field,
             name,
-            self.signature(node),
-            line_span(node),
+            self.json_signature(property.range),
+            json_line_span(self.source, property.range),
         );
         symbol.parent_key = parent_key.map(str::to_owned);
 
-        if let Some(value) = node.child_by_field_name("value") {
-            self.collect_json_value(value, Some(key.as_str()), &mut symbol.children);
-        }
+        self.collect_json_value(&property.value, Some(key.as_str()), &mut symbol.children);
 
         symbols.push(symbol);
     }
@@ -417,6 +408,15 @@ impl<'a> Collector<'a> {
             .unwrap_or_default()
             .to_owned()
     }
+
+    fn json_signature(&self, range: JsonRange) -> String {
+        self.source
+            .get(range.start..range.end)
+            .and_then(|text| text.lines().next())
+            .map(str::trim)
+            .unwrap_or_default()
+            .to_owned()
+    }
 }
 
 fn first_key_child(node: Node<'_>) -> Option<Node<'_>> {
@@ -471,4 +471,18 @@ fn strip_quotes(text: &str) -> String {
 
 fn line_span(node: Node<'_>) -> LineSpan {
     LineSpan::new(node.start_position().row + 1, node.end_position().row + 1)
+}
+
+fn json_line_span(source: &str, range: JsonRange) -> LineSpan {
+    let start_line = source.as_bytes()[..range.start]
+        .iter()
+        .filter(|byte| **byte == b'\n')
+        .count()
+        + 1;
+    let end_line = source.as_bytes()[..range.end]
+        .iter()
+        .filter(|byte| **byte == b'\n')
+        .count()
+        + 1;
+    LineSpan::new(start_line, end_line)
 }
