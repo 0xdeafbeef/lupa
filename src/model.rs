@@ -279,6 +279,7 @@ pub struct FileMap {
     pub byte_count: usize,
     pub parse_errors: Vec<ParseError>,
     pub warnings: Vec<String>,
+    pub conflict_regions: Vec<LineSpan>,
     pub symbols: Vec<Symbol>,
 }
 
@@ -294,6 +295,7 @@ impl FileMap {
             byte_count,
             parse_errors: Vec::new(),
             warnings: Vec::new(),
+            conflict_regions: Vec::new(),
             symbols,
         }
     }

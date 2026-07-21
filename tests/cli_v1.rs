@@ -41,6 +41,7 @@ const MARKDOWN_FIXTURE: &str = "tests/fixtures/duplicate_headings.md";
 const NIX_FIXTURE: &str = "tests/fixtures/source_shapes.nix";
 const NO_BLOCK_PLS_FIXTURE: &str = "tests/fixtures/no_block_pls_shapes.rs";
 const PARSE_ERROR_FIXTURE: &str = "tests/fixtures/parse_error.rs";
+const CONFLICTED_FIXTURE: &str = "tests/fixtures/conflicted.rs";
 const PYTHON_FIXTURE: &str = "tests/fixtures/source_shapes.py";
 const RUST_ATTRIBUTES_FIXTURE: &str = "tests/fixtures/rust_attributes.rs";
 const RUST_FIXTURE: &str = "tests/fixtures/rust_symbols.rs";
@@ -2479,6 +2480,65 @@ fn language_stress_fixtures_cover_supported_languages() {
             }
         }
     }
+}
+
+#[test]
+fn conflicted_map_emits_warning_and_ordinary_symbols() {
+    let stdout = run_lupa(&["map", CONFLICTED_FIXTURE]);
+
+    assert_stdout_contains(&stdout, "# warning: unresolved merge conflict at L5-L11\n");
+    assert_stdout_contains(&stdout, " before ");
+    assert_stdout_contains(&stdout, " after ");
+}
+
+#[test]
+fn conflicted_context_emits_warning_before_hit_output() {
+    let hit = format!("{CONFLICTED_FIXTURE}:1");
+    let stdout = run_lupa(&["context", hit.as_str()]);
+    let warning = stdout
+        .find("# warning: unresolved merge conflict at L5-L11\n")
+        .expect("context should contain conflict warning");
+    let hit = stdout
+        .find(&format!("{CONFLICTED_FIXTURE} before@L1-L3 hits L1"))
+        .expect("context should contain hit output");
+
+    assert!(
+        warning < hit,
+        "warning should precede hit output:\n{stdout}"
+    );
+}
+
+#[test]
+fn conflicted_digest_emits_region_count() {
+    let stdout = run_lupa(&["digest", CONFLICTED_FIXTURE]);
+
+    assert_stdout_contains(&stdout, " 1C");
+}
+
+#[test]
+fn conflicted_keys_remains_diagnostics_free() {
+    let stdout = run_lupa(&["keys", CONFLICTED_FIXTURE]);
+
+    assert_stdout_lacks(&stdout, "warning");
+    assert_stdout_lacks(&stdout, "conflict");
+    assert_stdout_lacks(&stdout, "#");
+    assert!(
+        stdout.lines().all(|line| {
+            let fields = line.split_whitespace().collect::<Vec<_>>();
+            fields.len() == 2 && fields[1].starts_with('L')
+        }),
+        "keys output should remain key/range lines:\n{stdout}"
+    );
+}
+
+#[test]
+fn conflicted_show_remains_diagnostics_free() {
+    let stdout = run_lupa(&["show", CONFLICTED_FIXTURE, "before"]);
+
+    assert_stdout_contains(&stdout, "# before@L1-L3\n");
+    assert_stdout_contains(&stdout, "pub fn before() -> usize {\n");
+    assert_stdout_lacks(&stdout, "warning");
+    assert_stdout_lacks(&stdout, "conflict at");
 }
 
 fn run_lupa(args: &[&str]) -> String {

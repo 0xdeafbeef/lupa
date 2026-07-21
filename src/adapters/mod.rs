@@ -15,10 +15,12 @@ pub mod typst;
 
 use std::path::Path;
 
+use crate::conflicts;
 use crate::model::{FileMap, Language};
 
 pub fn parse_source(path: &Path, language: Language, source: String) -> Result<FileMap, String> {
-    match language {
+    let conflict_regions = conflicts::detect_conflict_regions(&source);
+    let file: Result<FileMap, String> = match language {
         Language::Bash
         | Language::Cmake
         | Language::Css
@@ -47,5 +49,8 @@ pub fn parse_source(path: &Path, language: Language, source: String) -> Result<F
         Language::Toml => Ok(config::parse_toml(path, source)),
         Language::Typst => Ok(typst::parse(path, source)),
         Language::Yaml => Ok(config::parse_yaml(path, source)),
-    }
+    };
+    let mut file = file?;
+    file.conflict_regions = conflict_regions;
+    Ok(file)
 }

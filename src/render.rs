@@ -17,16 +17,7 @@ pub fn render_map(file: &FileMap, out: &mut impl fmt::Write) -> fmt::Result {
         file.byte_count,
         symbols.len()
     )?;
-    for error in &file.parse_errors {
-        writeln!(
-            out,
-            "# warning: parse error at L{}: {}",
-            error.line, error.message
-        )?;
-    }
-    for warning in &file.warnings {
-        writeln!(out, "# warning: {warning}")?;
-    }
+    render_diagnostics(file, out)?;
     for symbol in &file.symbols {
         render_symbol(symbol, 0, out)?;
     }
@@ -72,6 +63,9 @@ pub fn render_digest(files: &[FileMap], out: &mut impl fmt::Write) -> fmt::Resul
         if !file.warnings.is_empty() {
             write!(out, " syntax-only")?;
         }
+        if !file.conflict_regions.is_empty() {
+            write!(out, " {}C", file.conflict_regions.len())?;
+        }
         for symbol in file.symbols.iter().take(DIGEST_MAX_TOP) {
             write!(out, " {}@{}", symbol.key, symbol.range)?;
             let prefix = format!("{}.", symbol.key);
@@ -97,6 +91,23 @@ pub fn render_digest(files: &[FileMap], out: &mut impl fmt::Write) -> fmt::Resul
             write!(out, " +{}", file.symbols.len() - DIGEST_MAX_TOP)?;
         }
         out.write_char('\n')?;
+    }
+    Ok(())
+}
+
+pub(crate) fn render_diagnostics(file: &FileMap, out: &mut impl fmt::Write) -> fmt::Result {
+    for error in &file.parse_errors {
+        writeln!(
+            out,
+            "# warning: parse error at L{}: {}",
+            error.line, error.message
+        )?;
+    }
+    for warning in &file.warnings {
+        writeln!(out, "# warning: {warning}")?;
+    }
+    for span in &file.conflict_regions {
+        writeln!(out, "# warning: unresolved merge conflict at {span}")?;
     }
     Ok(())
 }

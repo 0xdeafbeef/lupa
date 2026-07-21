@@ -2,6 +2,7 @@ use std::fmt;
 use std::path::PathBuf;
 
 use crate::model::{FileMap, Symbol};
+use crate::render;
 
 const MAX_SIBLINGS: usize = 4;
 
@@ -39,16 +40,7 @@ pub fn parse_hit(input: &str) -> Option<ContextHit> {
 }
 
 pub fn render_context(file: &FileMap, lines: &[usize], out: &mut impl fmt::Write) -> fmt::Result {
-    for error in &file.parse_errors {
-        writeln!(
-            out,
-            "# warning: parse error at L{}: {}",
-            error.line, error.message
-        )?;
-    }
-    for warning in &file.warnings {
-        writeln!(out, "# warning: {warning}")?;
-    }
+    render::render_diagnostics(file, out)?;
 
     let symbols = file.all_symbols();
     let mut groups = Vec::<ContextGroup<'_>>::new();

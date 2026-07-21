@@ -1,4 +1,5 @@
 mod adapters;
+mod conflicts;
 mod grammars;
 
 pub mod context;
